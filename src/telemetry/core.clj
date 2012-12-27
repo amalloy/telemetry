@@ -30,7 +30,6 @@
 
 (defn consumption-handler [req]
   (let [{:keys [q]} (:params req)]
-    (prn req q)
     {:status 200
      :headers {"content-type" "application/json"}
      :body (->> (trace/subscribe endpoint (formats/url-decode q))
