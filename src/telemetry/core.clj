@@ -60,4 +60,5 @@
   (tcp-server)
   (http-server))
 
-(init)
+(defn -main [& args]
+  (init))
