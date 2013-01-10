@@ -3,12 +3,14 @@
   (:require
    [clojure.string :as str]
    (lamina [core :as lamina]
+           [connections :as connection]
            trace)
    (gloss [core :as gloss])
    (aleph [trace :as trace]
           [formats :as formats]
           [http :as http]
-          [tcp :as tcp])))
+          [tcp :as tcp]))
+  (:import java.util.Date))
 
 (def trace-port 8000)
 (def tcp-port 8001)
@@ -36,25 +38,53 @@
                 (lamina/map* formats/encode-json->string)
                 (lamina/map* #(str % "\n")))}))
 
-(defn init []
-  
-  (def tcp-server
-    (tcp/start-tcp-server
-     input-handler
-     {:port tcp-port
-      :delimiters ["\r\n" "\n"]
-      :frame [(gloss/string :utf-8 :delimiters [" "])
-              (gloss/string :utf-8)]}))
+(defn graphite-channel [host port]
+  (tcp/tcp-client {:host host :port port
+                   :frame [(gloss/string :utf-8 :delimiters [" "]) ;; message type
+                           (gloss/string-integer :utf-8 :delimiters [" "]) ;; count
+                           (gloss/string-integer :utf-8 :delimiters ["\n"])]})) ;; timestamp
 
-  (def http-server
-    (http/start-http-server
+(defn outgoing-channel-generator [host port]
+  (connection/persistent-connection
+   (fn []
+     (doto @(graphite-channel host port)
+       (lamina/ground))))) ;; we will only ever look at the write end of the channel
 
-     (-> consumption-handler
-         wrap-keyword-params
-         wrap-params
-         http/wrap-ring-handler)
+(declare outgoing-channel)
 
-     {:port http-port})))
+(defn unix-time [^Date date]
+  (-> date (.getTime) (quot 1000)))
+
+(defn add-listener [query name]
+  (doto (trace/subscribe endpoint query)
+    (-> (:messages)
+        (->> (lamina/map* (fn [data]
+                            [name data (unix-time (Date.))])))
+        (lamina/siphon @(outgoing-channel)))))
+
+(defn init
+  ([] (init "localhost" 2003))
+  ([graphite-host graphite-port]
+
+     (def outgoing-channel (outgoing-channel-generator graphite-host graphite-port))
+
+     (def tcp-server
+       (tcp/start-tcp-server
+        input-handler
+        {:port tcp-port
+         :delimiters ["\r\n" "\n"]
+         :frame [(gloss/string :utf-8 :delimiters [" "])
+                 (gloss/string :utf-8)]}))
+
+     (def http-server
+       (http/start-http-server
+
+        (-> consumption-handler
+            wrap-keyword-params
+            wrap-params
+            http/wrap-ring-handler)
+
+        {:port http-port}))))
 
 (defn stop []
   (tcp-server)
