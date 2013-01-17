@@ -34,14 +34,13 @@
         (lamina.trace/trace* probe
           (formats/decode-json data))))))
 
-(defn inspection-handler [req]
-  (let [{:keys [q]} (:params req)]
-    {:status 200
-     :headers {"content-type" "application/json"}
-     :body (->> (trace/subscribe @endpoint (formats/url-decode q))
-                :messages
-                (lamina/map* formats/encode-json->string)
-                (lamina/map* #(str % "\n")))}))
+(defn inspector [query]
+  {:status 200
+   :headers {"content-type" "application/json"}
+   :body (->> (trace/subscribe @endpoint (formats/url-decode query))
+              :messages
+              (lamina/map* formats/encode-json->string)
+              (lamina/map* #(str % "\n")))})
 
 (defn graphite-channel [host port]
   (tcp/tcp-client {:host host :port port
@@ -77,15 +76,31 @@
 (defn remove-listener [name]
   (if-let [{:keys [unsubscribe query]} (dosync (returning (get @listeners name)
                                                  (alter listeners dissoc name)))]
-
     (do (unsubscribe)
         {:status 200 :headers {"content-type" "application/json"}
          :body (formats/encode-json->string {:query query})})
     {:status 404}))
 
+(defn readable-listeners [listeners]
+  (map-vals listeners :query))
+
 (defn get-listeners []
   {:status 200 :headers {"content-type" "application/json"}
-   :body (formats/encode-json->string (map-vals @listeners :query))})
+   :body (formats/encode-json->string (readable-listeners @listeners))})
+
+(let [config-file "config.clj"]
+  (defn save-listeners [listeners]
+    (spit config-file (pr-str (readable-listeners listeners))))
+  (defn restore-listeners []
+    (try
+      (doseq [[name query] (read-string (slurp config-file))]
+        (add-listener name query))
+      (catch java.io.IOException e nil))))
+
+(defn wrap-saving-listeners [handler]
+  (fn [request]
+    (returning (handler request)
+      (save-listeners @listeners))))
 
 (defn init
   ([] (init "localhost" 2003))
@@ -101,19 +116,23 @@
          :frame [(gloss/string :utf-8 :delimiters [" "])
                  (gloss/string :utf-8)]}))
 
+     (restore-listeners)
+
      (def http-server
        (http/start-http-server
-        (-> (routes (GET "/inspect" {:as req}
-                      (inspection-handler req))
-                    (POST "/listen" [name query]
-                      (add-listener name query))
-                    (POST "/forget" [name]
-                      (remove-listener name))
-                    (GET "/listeners" []
-                      (get-listeners)))
-            wrap-keyword-params
-            wrap-params
-            http/wrap-ring-handler)
+        (let [writers (routes (POST "/listen" [name query]
+                                (add-listener name query))
+                              (POST "/forget" [name]
+                                (remove-listener name)))
+              readers (routes (GET "/inspect" [query]
+                                (inspector query))
+                              (GET "/listeners" []
+                                (get-listeners)))]
+          (-> (routes (wrap-saving-listeners writers)
+                      readers)
+              wrap-keyword-params
+              wrap-params
+              http/wrap-ring-handler))
 
         {:port http-port}))
 
