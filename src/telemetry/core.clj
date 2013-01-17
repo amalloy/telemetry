@@ -11,8 +11,11 @@
           [formats :as formats]
           [http :as http]
           [tcp :as tcp])
-   [compojure.core :refer [routes GET POST]])
-  (:import java.util.Date))
+   [compojure.core :refer [routes GET POST]]
+   [flatland.useful.utils :refer [returning]]
+   [flatland.useful.map :refer [keyed map-vals]])
+  (:import java.util.Date)
+  (:use flatland.useful.debug))
 
 (def tcp-port 1845)
 (def http-port 1846)
@@ -57,12 +60,32 @@
 (defn unix-time [^Date date]
   (-> date (.getTime) (quot 1000)))
 
-(defn add-listener [query name]
-  (doto (trace/subscribe @endpoint query)
-    (-> (:messages)
-        (->> (lamina/map* (fn [data]
-                            [name data (unix-time (Date.))])))
-        (lamina/siphon @(outgoing-channel)))))
+(def listeners (ref {}))
+
+(defn add-listener [name query]
+  (let [channel (doto (trace/subscribe @endpoint query)
+                  (-> (:messages)
+                      (->> (lamina/map* (fn [data]
+                                          [name data (unix-time (Date.))])))
+                      (lamina/siphon @(outgoing-channel))))
+        unsubscribe (fn []
+                      (lamina/close (:messages channel)))]
+    (dosync
+     (alter listeners assoc name (keyed [query channel unsubscribe])))
+    {:status 204})) ;; no content
+
+(defn remove-listener [name]
+  (if-let [{:keys [unsubscribe query]} (dosync (returning (get @listeners name)
+                                                 (alter listeners dissoc name)))]
+
+    (do (unsubscribe)
+        {:status 200 :headers {"content-type" "application/json"}
+         :body (formats/encode-json->string {:query query})})
+    {:status 404}))
+
+(defn get-listeners []
+  {:status 200 :headers {"content-type" "application/json"}
+   :body (formats/encode-json->string (map-vals @listeners :query))})
 
 (defn init
   ([] (init "localhost" 2003))
@@ -82,8 +105,12 @@
        (http/start-http-server
         (-> (routes (GET "/inspect" {:as req}
                       (inspection-handler req))
-                    (POST "/listen" [query name]
-                      (add-listener query name)))
+                    (POST "/listen" [name query]
+                      (add-listener name query))
+                    (POST "/forget" [name]
+                      (remove-listener name))
+                    (GET "/listeners" []
+                      (get-listeners)))
             wrap-keyword-params
             wrap-params
             http/wrap-ring-handler)

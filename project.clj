@@ -6,5 +6,6 @@
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [aleph "0.3.0-SNAPSHOT"]
                  [compojure "1.1.1"]
-                 [swank-clojure "1.4.2"]]
+                 [swank-clojure "1.4.2"]
+                 [org.flatland/useful "0.9.0"]]
   :main telemetry.main)
