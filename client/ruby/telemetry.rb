@@ -10,7 +10,7 @@ class Telemetry
     end
   end
 
-  def initialize(port, host = "localhost")
+  def initialize(host = "localhost", port = 1845)
     @socket = TCPSocket.new(host, port)
   end
 
