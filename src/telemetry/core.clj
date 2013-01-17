@@ -12,8 +12,7 @@
           [http :as http]
           [tcp :as tcp])
    [compojure.core :refer [routes GET POST]])
-  (:import java.util.Date)
-  (:gen-class))
+  (:import java.util.Date))
 
 (def tcp-port 1845)
 (def http-port 1846)

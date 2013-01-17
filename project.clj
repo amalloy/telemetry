@@ -7,4 +7,4 @@
                  [aleph "0.3.0-SNAPSHOT"]
                  [compojure "1.1.1"]
                  [swank-clojure "1.4.2"]]
-  :main telemetry.core)
+  :main telemetry.main)
