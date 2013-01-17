@@ -2,6 +2,7 @@
   (:use [ring.middleware params keyword-params])
   (:require
    [clojure.string :as str]
+   [swank.swank :as swank]
    (lamina [core :as lamina]
            [connections :as connection]
            trace)
@@ -10,17 +11,18 @@
           [formats :as formats]
           [http :as http]
           [tcp :as tcp]))
-  (:import java.util.Date))
+  (:import java.util.Date)
+  (:gen-class))
 
-(def trace-port 8000)
-(def tcp-port 8001)
-(def http-port 8002)
+(def tcp-port 1845)
+(def http-port 1846)
+(def trace-port 1847)
 
-(defonce trace-router
-  (trace/start-trace-router {:port trace-port}))
+(declare trace-router)
 
 (defonce endpoint
-  (trace/trace-endpoint {:client-options {:host "localhost" :port trace-port}}))
+  (delay
+    (trace/trace-endpoint {:client-options {:host "localhost" :port trace-port}})))
 
 (defn input-handler [ch _]
   (lamina/receive-all ch
@@ -33,7 +35,7 @@
   (let [{:keys [q]} (:params req)]
     {:status 200
      :headers {"content-type" "application/json"}
-     :body (->> (trace/subscribe endpoint (formats/url-decode q))
+     :body (->> (trace/subscribe @endpoint (formats/url-decode q))
                 :messages
                 (lamina/map* formats/encode-json->string)
                 (lamina/map* #(str % "\n")))}))
@@ -56,7 +58,7 @@
   (-> date (.getTime) (quot 1000)))
 
 (defn add-listener [query name]
-  (doto (trace/subscribe endpoint query)
+  (doto (trace/subscribe @endpoint query)
     (-> (:messages)
         (->> (lamina/map* (fn [data]
                             [name data (unix-time (Date.))])))
@@ -65,7 +67,7 @@
 (defn init
   ([] (init "localhost" 2003))
   ([graphite-host graphite-port]
-
+     (def trace-router (trace/start-trace-router {:port trace-port}))
      (def outgoing-channel (outgoing-channel-generator graphite-host graphite-port))
 
      (def tcp-server
@@ -84,7 +86,12 @@
             wrap-params
             http/wrap-ring-handler)
 
-        {:port http-port}))))
+        {:port http-port}))
+
+     (let [host "localhost" port 4005]
+       (printf "Starting swank on %s:%d\n" host port)
+       (swank/start-server :host host :port port))
+     nil))
 
 (defn stop []
   (tcp-server)
