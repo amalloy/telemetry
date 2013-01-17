@@ -7,8 +7,8 @@ class Telemetry
     @socket = TCPSocket.new(host, port)
   end
 
-  def log(type, payload)
-    message = "#{type} #{payload.to_json}"
-    @socket.puts(message)
+  def log(label, data={}, &block)
+    data = block.call if block
+    @socket.puts("#{label.to_s} #{data.to_json}")
   end
 end
