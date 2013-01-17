@@ -10,7 +10,8 @@
    (aleph [trace :as trace]
           [formats :as formats]
           [http :as http]
-          [tcp :as tcp]))
+          [tcp :as tcp])
+   [compojure.core :refer [routes GET POST]])
   (:import java.util.Date)
   (:gen-class))
 
@@ -31,7 +32,7 @@
         (lamina.trace/trace* probe
           (formats/decode-json data))))))
 
-(defn consumption-handler [req]
+(defn inspection-handler [req]
   (let [{:keys [q]} (:params req)]
     {:status 200
      :headers {"content-type" "application/json"}
@@ -80,8 +81,10 @@
 
      (def http-server
        (http/start-http-server
-
-        (-> consumption-handler
+        (-> (routes (GET "/inspect" {:as req}
+                      (inspection-handler req))
+                    (POST "/listen" [query name]
+                      (add-listener query name)))
             wrap-keyword-params
             wrap-params
             http/wrap-ring-handler)
