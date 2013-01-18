@@ -16,6 +16,10 @@ class Telemetry
     raise NetworkException.new(e)
   end
 
+  def close
+    @socket.close
+  end
+
   def log(label, data={}, &block)
     data = block.call if block
     @socket.puts("#{label.to_s} #{data.to_json}")
