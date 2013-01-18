@@ -21,9 +21,12 @@
 (def http-port 1846)
 (def trace-port 1847)
 
-(declare trace-router)
+(def trace-router
+  "A server forwarding traces on the trace port to all subscribers.
+   Start the server by forcing this delay object."
+  (delay (trace/start-trace-router {:port trace-port})))
 
-(defonce endpoint
+(def endpoint
   (delay
     (trace/trace-endpoint {:client-options {:host "localhost" :port trace-port}})))
 
@@ -54,7 +57,16 @@
      (doto @(graphite-channel host port)
        (lamina/ground))))) ;; we will only ever look at the write end of the channel
 
-(declare outgoing-channel)
+(def outgoing-channel*
+  "Manages a persistent TCP connection to the graphite server;
+   deref to get a function that produces a lamina connection."
+  (promise))
+
+(defn outgoing-channel
+  "Produces the write half of a lamina connection to the graphite server; all
+   incoming data from the server is discarded."
+  []
+  @(@outgoing-channel*))
 
 (defn unix-time [^Date date]
   (-> date (.getTime) (quot 1000)))
@@ -104,7 +116,7 @@
   (let [channel (doto (trace/subscribe @endpoint query)
                   (-> (:messages)
                       (->> (lamina/mapcat* (graphite-sink name)))
-                      (lamina/siphon @(outgoing-channel))))
+                      (lamina/siphon (outgoing-channel))))
         unsubscribe (fn []
                       (lamina/close (:messages channel)))]
     (dosync
@@ -132,39 +144,44 @@
     (returning (handler request)
       (save-listeners @listeners))))
 
+(def tcp-server "A tcp server accepting traces via a simple text protocol."
+  (atom nil))
+(def http-server "A basic HTTP API to configure what traces are passed on to graphite."
+  (atom nil))
+
 (defn init
   ([] (init "localhost" 2003))
   ([graphite-host graphite-port]
-     (def trace-router (trace/start-trace-router {:port trace-port}))
-     (def outgoing-channel (outgoing-channel-generator graphite-host graphite-port))
+     (force trace-router)
+     (deliver outgoing-channel* (outgoing-channel-generator graphite-host graphite-port))
 
-     (def tcp-server
-       (tcp/start-tcp-server
-        input-handler
-        {:port tcp-port
-         :delimiters ["\r\n" "\n"]
-         :frame [(gloss/string :utf-8 :delimiters [" "])
-                 (gloss/string :utf-8)]}))
+     (reset! tcp-server
+             (tcp/start-tcp-server
+              input-handler
+              {:port tcp-port
+               :delimiters ["\r\n" "\n"]
+               :frame [(gloss/string :utf-8 :delimiters [" "])
+                       (gloss/string :utf-8)]}))
 
      (restore-listeners)
 
-     (def http-server
-       (http/start-http-server
-        (let [writers (routes (POST "/listen" [name query]
-                                (add-listener name query))
-                              (POST "/forget" [name]
-                                (remove-listener name)))
-              readers (routes (GET "/inspect" [query]
-                                (inspector query))
-                              (GET "/listeners" []
-                                (get-listeners)))]
-          (-> (routes (wrap-saving-listeners writers)
-                      readers)
-              wrap-keyword-params
-              wrap-params
-              http/wrap-ring-handler))
+     (reset! http-server
+             (http/start-http-server
+              (let [writers (routes (POST "/listen" [name query]
+                                      (add-listener name query))
+                                    (POST "/forget" [name]
+                                      (remove-listener name)))
+                    readers (routes (GET "/inspect" [query]
+                                      (inspector query))
+                                    (GET "/listeners" []
+                                      (get-listeners)))]
+                (-> (routes (wrap-saving-listeners writers)
+                            readers)
+                    wrap-keyword-params
+                    wrap-params
+                    http/wrap-ring-handler))
 
-        {:port http-port}))
+              {:port http-port}))
 
      (let [host "localhost" port 4005]
        (printf "Starting swank on %s:%d\n" host port)
@@ -172,8 +189,14 @@
      nil))
 
 (defn stop []
-  (tcp-server)
-  (http-server))
+  (@tcp-server)
+  (reset! tcp-server nil)
+
+  (@http-server)
+  (reset! http-server nil)
+
+  (save-listeners (dosync (returning @listeners
+                            (ref-set listeners {})))))
 
 (defn -main [& args]
   (init))
