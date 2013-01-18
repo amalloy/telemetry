@@ -137,7 +137,7 @@
     (try
       (doseq [[name query] (read-string (slurp config-file))]
         (add-listener name query))
-      (catch java.io.IOException e nil))))
+      (catch Exception e nil))))
 
 (defn wrap-saving-listeners [handler]
   (fn [request]
