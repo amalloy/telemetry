@@ -12,6 +12,8 @@ class Telemetry
 
   def initialize(host = "localhost", port = 1845)
     @socket = TCPSocket.new(host, port)
+  rescue Errno::ECONNREFUSED => e
+    raise NetworkException.new(e)
   end
 
   def log(label, data={}, &block)
