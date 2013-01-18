@@ -61,11 +61,40 @@
 
 (def listeners (ref {}))
 
+(defn rename-multiple [pattern keys]
+  (reduce (fn [name [attr i]]
+            (str/replace name (str "*" i)
+                         attr))
+          pattern
+          (map vector keys (iterate inc 1))))
+
+(defn rename-one [pattern key]
+  (str/replace pattern #"\*" key))
+
+(defn timed-sink [name]
+  (fn [data]
+    (let [now (unix-time (Date.))]
+      [[name data now]])))
+
+(defn sink-by-name [pattern rename-fn]
+  (fn [keyed-numbers]
+    (let [now (unix-time (Date.))]
+      (for [[k v] keyed-numbers]
+        (let [name (rename-fn pattern k)]
+          [name v now])))))
+
+(defn graphite-sink [name]
+  (if (re-find #"\*\d" name)
+    (let [name (str/replace name #"\*(?!\d)" "*1")]
+      (sink-by-name name rename-multiple))
+    (if (re-find #"\*" name)
+      (sink-by-name name rename-one)
+      (timed-sink name))))
+
 (defn add-listener [name query]
   (let [channel (doto (trace/subscribe @endpoint query)
                   (-> (:messages)
-                      (->> (lamina/map* (fn [data]
-                                          [name data (unix-time (Date.))])))
+                      (->> (lamina/mapcat* (graphite-sink name)))
                       (lamina/siphon @(outgoing-channel))))
         unsubscribe (fn []
                       (lamina/close (:messages channel)))]
