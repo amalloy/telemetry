@@ -91,7 +91,16 @@
       (sink-by-name name rename-one)
       (timed-sink name))))
 
+(defn remove-listener [name]
+  (if-let [{:keys [unsubscribe query]} (dosync (returning (get @listeners name)
+                                                 (alter listeners dissoc name)))]
+    (do (unsubscribe)
+        {:status 200 :headers {"content-type" "application/json"}
+         :body (formats/encode-json->string {:query query})})
+    {:status 404}))
+
 (defn add-listener [name query]
+  (remove-listener name)
   (let [channel (doto (trace/subscribe @endpoint query)
                   (-> (:messages)
                       (->> (lamina/mapcat* (graphite-sink name)))
@@ -101,14 +110,6 @@
     (dosync
      (alter listeners assoc name (keyed [query channel unsubscribe])))
     {:status 204})) ;; no content
-
-(defn remove-listener [name]
-  (if-let [{:keys [unsubscribe query]} (dosync (returning (get @listeners name)
-                                                 (alter listeners dissoc name)))]
-    (do (unsubscribe)
-        {:status 200 :headers {"content-type" "application/json"}
-         :body (formats/encode-json->string {:query query})})
-    {:status 404}))
 
 (defn readable-listeners [listeners]
   (map-vals listeners :query))
