@@ -76,7 +76,7 @@
 (defn rename-multiple [pattern keys]
   (reduce (fn [name [attr i]]
             (str/replace name (str "*" i)
-                         attr))
+                         (str attr)))
           pattern
           (map vector keys (iterate inc 1))))
 
