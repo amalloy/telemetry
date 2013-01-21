@@ -141,8 +141,9 @@
 
 (defn wrap-saving-listeners [handler]
   (fn [request]
-    (returning (handler request)
-      (save-listeners @listeners))))
+    (when-let [response (handler request)]
+      (save-listeners @listeners)
+      response)))
 
 (def tcp-server "A tcp server accepting traces via a simple text protocol."
   (atom nil))
