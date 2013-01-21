@@ -164,8 +164,7 @@
                   (-> (:messages)
                       (->> (lamina/mapcat* (graphite-sink name)))
                       (lamina/siphon (outgoing-channel))))
-        unsubscribe (fn []
-                      (lamina/close (:messages channel)))]
+        unsubscribe #(lamina/close (:messages channel))]
     (dosync
      (alter listeners assoc name (keyed [query channel unsubscribe])))
     {:status 204})) ;; no content
