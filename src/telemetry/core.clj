@@ -48,7 +48,7 @@
 (defn graphite-channel [host port]
   (tcp/tcp-client {:host host :port port
                    :frame [(gloss/string :utf-8 :delimiters [" "]) ;; message type
-                           (gloss/string-integer :utf-8 :delimiters [" "]) ;; count
+                           (gloss/string-float :utf-8 :delimiters [" "]) ;; count
                            (gloss/string-integer :utf-8 :delimiters ["\n"])]})) ;; timestamp
 
 (defn outgoing-channel-generator [host port]
