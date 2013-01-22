@@ -2,6 +2,7 @@
   (:use
     [ring.middleware params keyword-params]
     [lamina core trace]
+    [lamina.cache :only (subscribe)]
     [gloss core])
   (:require
     [clojure.string :as str]
@@ -11,15 +12,8 @@
      [http :as http]
      [tcp :as tcp]]))
 
-(def trace-port 8000)
 (def tcp-port 8001)
 (def http-port 8002)
-
-(defonce trace-router
-  (trace/start-trace-router {:port trace-port}))
-
-(defonce endpoint
-  (trace/trace-endpoint {:client-options {:host "localhost" :port trace-port}}))
 
 (defn input-handler [ch _]
   (receive-all ch
@@ -32,8 +26,7 @@
   (let [{:keys [q]} (:params req)]
     {:status 200
      :headers {"content-type" "application/json"}
-     :body (->> (trace/subscribe endpoint (formats/url-decode q))
-             :messages
+     :body (->> (subscribe local-trace-router (formats/url-decode q))
              (map* formats/encode-json->string)
              (map* #(str % "\n")))}))
 
