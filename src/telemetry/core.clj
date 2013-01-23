@@ -129,7 +129,6 @@
   {:status 200
    :headers {"content-type" "application/json"}
    :body (->> (subscribe trace/local-trace-router (formats/url-decode query))
-              :messages
               (lamina/map* formats/encode-json->string)
               (lamina/map* #(str % "\n")))})
 
@@ -149,10 +148,9 @@
   [name query]
   (remove-listener name)
   (let [channel (doto (subscribe trace/local-trace-router query)
-                  (-> (:messages)
-                      (->> (lamina/mapcat* (graphite-sink name)))
+                  (-> (->> (lamina/mapcat* (graphite-sink name)))
                       (lamina/siphon graphite-nexus)))
-        unsubscribe #(lamina/close (:messages channel))]
+        unsubscribe #(lamina/close channel)]
     (dosync
      (alter listeners assoc name (keyed [query channel unsubscribe])))
     {:status 204})) ;; no content
