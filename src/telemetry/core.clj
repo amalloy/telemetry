@@ -29,6 +29,11 @@
         (trace/trace* probe
           (formats/decode-json data))))))
 
+(def graphite-nexus
+  "Messages sent to this channel will be siphoned out to the graphite server if possible,
+   or dropped on the floor if the connection cannot be made."
+  (lamina/channel* :permanent? true, :grounded? true))
+
 (defn graphite-channel
   "Produce a channel that receives [name data time] tuples and sends them, formatted for graphite,
   to a server on the specified host and port."
@@ -38,22 +43,15 @@
                            (gloss/string-float :utf-8 :delimiters [" "]) ;; count
                            (gloss/string-integer :utf-8 :delimiters ["\n"])]})) ;; timestamp
 
-(defn outgoing-channel-generator [host port]
-  (connection/persistent-connection
-   (fn []
-     (doto @(graphite-channel host port)
-       (lamina/ground))))) ;; we will only ever look at the write end of the channel
-
-(def outgoing-channel*
-  "Manages a persistent TCP connection to the graphite server;
-   deref to get a function that produces a lamina connection."
-  (promise))
-
-(defn outgoing-channel
-  "Produces the write half of a lamina connection to the graphite server; all
-   incoming data from the server is discarded."
-  []
-  @(@outgoing-channel*))
+(defn init-graphite-connection
+  "Starts a channel that will siphon from the graphite nexus into a graphite server forever."
+  [host port]
+  (let [graphite-connector (connection/persistent-connection
+                            #(graphite-channel host port)
+                            {:on-connected (fn [ch]
+                                             (lamina/ground ch)
+                                             (lamina/siphon graphite-nexus ch))})]
+    (graphite-connector)))
 
 (defn unix-time
   "Number of seconds since the unix epoch, as by Linux's time() system call."
@@ -153,7 +151,7 @@
   (let [channel (doto (subscribe trace/local-trace-router query)
                   (-> (:messages)
                       (->> (lamina/mapcat* (graphite-sink name)))
-                      (lamina/siphon (outgoing-channel))))
+                      (lamina/siphon graphite-nexus)))
         unsubscribe #(lamina/close (:messages channel))]
     (dosync
      (alter listeners assoc name (keyed [query channel unsubscribe])))
@@ -195,7 +193,7 @@
 (defn init
   ([] (init "localhost" 2003))
   ([graphite-host graphite-port]
-     (deliver outgoing-channel* (outgoing-channel-generator graphite-host graphite-port))
+     (init-graphite-connection graphite-host graphite-port)
 
      (reset! tcp-server
              (tcp/start-tcp-server
