@@ -5,10 +5,10 @@
    [swank.swank :as swank]
    (lamina [core :as lamina]
            [connections :as connection]
-           trace)
+           [trace :as trace]
+           [cache :refer [subscribe]])
    (gloss [core :as gloss])
-   (aleph [trace :as trace]
-          [formats :as formats]
+   (aleph [formats :as formats]
           [http :as http]
           [tcp :as tcp])
    [compojure.core :refer [routes GET POST]]
@@ -19,16 +19,6 @@
 
 (def tcp-port 1845)
 (def http-port 1846)
-(def trace-port 1847)
-
-(def trace-router
-  "A server forwarding traces on the trace port to all subscribers.
-   Start the server by forcing this delay object."
-  (delay (trace/start-trace-router {:port trace-port})))
-
-(def endpoint
-  (delay
-    (trace/trace-endpoint {:client-options {:host "localhost" :port trace-port}})))
 
 (defn input-handler
   "Forwards each message it receives into the trace router."
@@ -36,7 +26,7 @@
   (lamina/receive-all ch
     (fn [[probe data]]
       (let [probe (str/replace probe #"\." ":")]
-        (lamina.trace/trace* probe
+        (trace/trace* probe
           (formats/decode-json data))))))
 
 (defn graphite-channel
@@ -140,7 +130,7 @@
   [query]
   {:status 200
    :headers {"content-type" "application/json"}
-   :body (->> (trace/subscribe @endpoint (formats/url-decode query))
+   :body (->> (subscribe trace/local-trace-router (formats/url-decode query))
               :messages
               (lamina/map* formats/encode-json->string)
               (lamina/map* #(str % "\n")))})
@@ -160,7 +150,7 @@
   pattern. Implicitly disconnects any existing writer from that sink first."
   [name query]
   (remove-listener name)
-  (let [channel (doto (trace/subscribe @endpoint query)
+  (let [channel (doto (subscribe trace/local-trace-router query)
                   (-> (:messages)
                       (->> (lamina/mapcat* (graphite-sink name)))
                       (lamina/siphon (outgoing-channel))))
@@ -205,7 +195,6 @@
 (defn init
   ([] (init "localhost" 2003))
   ([graphite-host graphite-port]
-     (force trace-router)
      (deliver outgoing-channel* (outgoing-channel-generator graphite-host graphite-port))
 
      (reset! tcp-server
