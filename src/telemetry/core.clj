@@ -183,6 +183,10 @@
       (save-listeners @listeners)
       response)))
 
+(defn wrap-debug [handler]
+  (fn [req]
+    (?! (handler (?! req)))))
+
 (def tcp-server "A tcp server accepting traces via a simple text protocol."
   (atom nil))
 (def http-server "A basic HTTP API to configure what traces are passed on to graphite."
