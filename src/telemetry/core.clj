@@ -6,7 +6,8 @@
    (lamina [core :as lamina]
            [connections :as connection]
            [trace :as trace]
-           [cache :refer [subscribe]])
+           [cache :as cache])
+   [lamina.trace.router.core :as router]
    (gloss [core :as gloss])
    (aleph [formats :as formats]
           [http :as http]
@@ -20,14 +21,20 @@
 (def tcp-port 1845)
 (def http-port 1846)
 
+(def aggregation-period
+  "Number of milliseconds lamina should buffer up periodic data before flushing."
+  30000)
+
 (defn input-handler
   "Forwards each message it receives into the trace router."
   [ch _]
-  (lamina/receive-all ch
-    (fn [[probe data]]
-      (let [probe (str/replace probe #"\." ":")]
-        (trace/trace* probe
-          (formats/decode-json data))))))
+  (let [ch* (->> ch
+                 (lamina/map* (fn [[probe data]]
+                                [(str/replace probe #"\." ":")
+                                 (formats/decode-json data)])))]
+    (lamina/receive-all ch*
+                        (fn [[probe data]]
+                          (trace/trace* probe data)))))
 
 (def graphite-nexus
   "Messages sent to this channel will be siphoned out to the graphite server if possible,
@@ -120,6 +127,9 @@
       (sink-by-name name rename-one)
       (timed-sink name))))
 
+(defn subscribe [query]
+  (cache/subscribe trace/local-trace-router query :period aggregation-period))
+
 ;;; functions that work on the listener list, and return Ring responses
 
 (defn inspector
@@ -128,7 +138,7 @@
   [query]
   {:status 200
    :headers {"content-type" "application/json"}
-   :body (->> (subscribe trace/local-trace-router (formats/url-decode query))
+   :body (->> (subscribe (formats/url-decode query))
               (lamina/map* formats/encode-json->string)
               (lamina/map* #(str % "\n")))})
 
@@ -147,7 +157,7 @@
   pattern. Implicitly disconnects any existing writer from that sink first."
   [name query]
   (remove-listener name)
-  (let [channel (doto (subscribe trace/local-trace-router query)
+  (let [channel (doto (subscribe query)
                   (-> (->> (lamina/mapcat* (graphite-sink name)))
                       (lamina/siphon graphite-nexus)))
         unsubscribe #(lamina/close channel)]
@@ -241,4 +251,6 @@
                             (ref-set listeners {})))))
 
 (defn -main [& args]
+  (when-let [[period] (seq args)]
+    (alter-var-root #'aggregation-period (constantly (Long/parseLong period))))
   (init))
