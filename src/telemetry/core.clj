@@ -235,6 +235,13 @@
 
               {:port http-port}))
 
+     (-> (trace/probe-channel "web:request")
+         (->> (lamina/filter* (comp nil? :duration)))
+         (lamina/receive-all (fn [bad-probe]
+                               (let [msg (format "Received bad probe %s\n"
+                                                 (pr-str bad-probe))]
+                                 (spit "log.clj" msg :append true)))))
+
      (let [host "localhost" port 4005]
        (printf "Starting swank on %s:%d\n" host port)
        (swank/start-server :host host :port port))
