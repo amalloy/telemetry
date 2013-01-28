@@ -9,4 +9,5 @@
                  [swank-clojure "1.4.2"]
                  [io.netty/netty "3.5.9.Final"]
                  [org.flatland/useful "0.9.0"]]
-  :main telemetry.main)
+  :main telemetry.main
+  :uberjar-name "telemetry.jar")
