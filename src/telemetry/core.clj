@@ -34,7 +34,7 @@
                                  (formats/decode-json data)])))]
     (lamina/receive-all ch*
                         (fn [[probe data]]
-                          (trace/trace* probe data)))))
+                          (trace/trace* probe [probe data])))))
 
 (def graphite-nexus
   "Messages sent to this channel will be siphoned out to the graphite server if possible,
@@ -120,12 +120,14 @@
    - a pattern containing the * wildcard (in which case it is assumed to be grouped-by one field),
    - a pattern with *1, *2 wildcards (in which case it is assumed to be grouped-by a tuple)."
   [name]
-  (if (re-find #"\*\d" name)
-    (let [name (str/replace name #"\*(?!\d)" "*1")]
-      (sink-by-name name rename-multiple))
-    (if (re-find #"\*" name)
-      (sink-by-name name rename-one)
-      (timed-sink name))))
+  (let [data-sink (if (re-find #"\*\d" name)
+                    (let [name (str/replace name #"\*(?!\d)" "*1")]
+                      (sink-by-name name rename-multiple))
+                    (if (re-find #"\*" name)
+                      (sink-by-name name rename-one)
+                      (timed-sink name)))]
+    (fn [[probe data]]
+      (data-sink data))))
 
 (defn subscribe [query]
   (cache/subscribe trace/local-trace-router query :period aggregation-period))
@@ -139,8 +141,8 @@
   {:status 200
    :headers {"content-type" "application/json"}
    :body (->> (subscribe (formats/url-decode query))
-              (lamina/map* formats/encode-json->string)
-              (lamina/map* #(str % "\n")))})
+              (lamina/map* (fn [[probe data]]
+                             (str probe "\n" (pr-str data) "\n"))))})
 
 (defn remove-listener
   "Disconnects any channel writing to the given name/pattern."
