@@ -73,9 +73,9 @@
   (if-let [connect (get-in config [:modules type :listen])]
     (do
       (remove-listener config type name)
-      (let [channel (doto (subscribe config (?! query))
+      (let [channel (doto (subscribe config query)
                       (lamina/receive-all (fn [value]
-                                            (?! value)))
+                                            value))
                       (connect name))
             unsubscribe #(lamina/close channel)]
         (dosync
@@ -137,10 +137,10 @@
                                (throw (Exception. (format "Module %s must provide a shutdown hook."
                                                           (:name module)))))
                              [(:name module) module])))
-        config (?! (doto (assoc config
-                           :listeners (ref {})
-                           :modules modules)
-                     (restore-listeners)))
+        config (doto (assoc config
+                       :listeners (ref {})
+                       :modules modules)
+                 (restore-listeners))
         tcp (tcp/start-tcp-server
              input-handler
              {:port tcp-port
