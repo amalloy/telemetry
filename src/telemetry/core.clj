@@ -81,7 +81,7 @@
                 assoc-in [type name]
                 (keyed [query channel unsubscribe])))
         {:status 204})) ;; no content
-    {:status 404 :body "Unrecognized listener type"}))
+    {:status 404 :body "Unrecognized listener type\n"}))
 
 (defn readable-listeners
   "A view of the listeners map which can be printed and reread."
@@ -97,7 +97,8 @@
   "Produces a summary of all probe queries and the graphite names they're writing to."
   [config]
   {:status 200 :headers {"content-type" "application/json"}
-   :body (formats/encode-json->string (readable-listeners @(:listeners config)))})
+   :body (str (formats/encode-json->string (readable-listeners @(:listeners config)))
+              "\n")})
 
 (defn save-listeners
   "Saves the current listeners to a file in the current directory."
