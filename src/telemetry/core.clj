@@ -74,8 +74,6 @@
     (do
       (remove-listener config type name)
       (let [channel (doto (subscribe config query)
-                      (lamina/receive-all (fn [value]
-                                            value))
                       (connect name))
             unsubscribe #(lamina/close channel)]
         (dosync
