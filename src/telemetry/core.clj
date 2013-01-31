@@ -39,30 +39,6 @@
          (fn [[probe data]]
            (trace/trace* probe [probe data]))))))
 
-(def graphite-nexus
-  "Messages sent to this channel will be siphoned out to the graphite server if possible,
-   or dropped on the floor if the connection cannot be made."
-  (lamina/channel* :permanent? true, :grounded? true))
-
-(defn graphite-channel
-  "Produce a channel that receives [name data time] tuples and sends them, formatted for graphite,
-  to a server on the specified host and port."
-  [host port]
-  (tcp/tcp-client {:host host :port port
-                   :frame [(gloss/string :utf-8 :delimiters [" "]) ;; message type
-                           (gloss/string-float :utf-8 :delimiters [" "]) ;; count
-                           (gloss/string-integer :utf-8 :delimiters ["\n"])]})) ;; timestamp
-
-(defn init-graphite-connection
-  "Starts a channel that will siphon from the graphite nexus into a graphite server forever."
-  [host port]
-  (let [graphite-connector (connection/persistent-connection
-                            #(graphite-channel host port)
-                            {:on-connected (fn [ch]
-                                             (lamina/ground ch)
-                                             (lamina/siphon graphite-nexus ch))})]
-    (graphite-connector)))
-
 (defn unix-time
   "Number of seconds since the unix epoch, as by Linux's time() system call."
   [^Date date]
@@ -202,65 +178,79 @@
   (fn [req]
     (?! (handler (?! req)))))
 
-(def tcp-server "A tcp server accepting traces via a simple text protocol."
-  (atom nil))
-(def http-server "A basic HTTP API to configure what traces are passed on to graphite."
-  (atom nil))
+(defn carbon-channel
+  "Produce a channel that receives [name data time] tuples and sends them, formatted for carbon,
+  to a server on the specified host and port."
+  [host port]
+  (tcp/tcp-client {:host host :port port
+                   :frame [(gloss/string :utf-8 :delimiters [" "]) ;; message type
+                           (gloss/string-float :utf-8 :delimiters [" "]) ;; count
+                           (gloss/string-integer :utf-8 :delimiters ["\n"])]})) ;; timestamp
 
-(defn init
-  ([] (init "localhost" 2003))
-  ([graphite-host graphite-port]
-     (init-graphite-connection graphite-host graphite-port)
+(defn init-carbon-connection
+  "Starts a channel that will siphon from the carbon nexus into a carbon server forever.
+   Returns a thunk that will close the connection."
+  [nexus host port]
+  (let [carbon-connector (connection/persistent-connection
+                          #(carbon-channel host port)
+                          {:on-connected (fn [ch]
+                                           (lamina/ground ch)
+                                           (lamina/siphon nexus ch))})]
+    (carbon-connector)
+    (fn []
+      (connection/close-connection carbon-connector))))
 
-     (reset! tcp-server
-             (tcp/start-tcp-server
-              input-handler
-              {:port tcp-port
-               :delimiters ["\r\n" "\n"]
-               :frame [(gloss/string :utf-8 :delimiters [" "])
-                       (gloss/string :utf-8)]}))
+(defn carbon-init [{:keys [host port] :or {host "localhost" port 2003}}]
+  (let [nexus (lamina/channel* :permanent? true :grounded? true)
+        stop-carbon (init-carbon-connection nexus host port)]
 
-     (restore-listeners)
+    {:name :carbon
+     :shutdown stop-carbon
+     :handler (constantly nil)
+     :listen (fn listen [name ch]
+               (-> ch
+                   (->> (lamina/mapcat* (graphite-sink name)))
+                   (lamina/siphon nexus)))}))
 
-     (reset! http-server
-             (http/start-http-server
-              (let [writers (routes (POST "/listen" [name query]
-                                      (add-listener name query))
-                                    (POST "/forget" [name]
-                                      (remove-listener name)))
+(defn telemetry-init [{:keys [modules aggregation-period] :as config}]
+  (let [modules (into {} (for [{:keys [init options]} modules]
+                           (let [module (init options)]
+                             (when-not (:shutdown module)
+                               (throw (Exception. (format "Module %s must provide a shutdown hook."
+                                                          (:name module)))))
+                             [(:name module) module])))
+        config (doto (assoc config
+                       :listeners (ref {})
+                       :modules modules)
+                 (restore-listeners))
+        tcp (tcp/start-tcp-server
+             input-handler
+             {:port tcp-port
+              :delimiters ["\r\n" "\n"]
+              :frame [(gloss/string :utf-8 :delimiters [" "])
+                      (gloss/string :utf-8)]})
+        http (http/start-http-server
+              (let [writers (routes (POST "/listen" [type name query]
+                                      (add-listener config (keyword type) name query))
+                                    (POST "/forget" [type name]
+                                      (remove-listener config (keyword type) name)))
                     readers (routes (GET "/inspect" [query]
                                       (inspector query))
-                                    (GET "/listeners" []
-                                      (get-listeners)))]
-                (-> (routes (wrap-saving-listeners writers)
+                                    (GET "/listeners" [type]
+                                      (get-listeners listeners (keyword type))))]
+                (-> (routes (wrap-saving-listeners writers config)
                             readers)
                     wrap-keyword-params
                     wrap-params
                     http/wrap-ring-handler))
 
-              {:port http-port}))
+              {:port http-port})]
 
-     (-> (trace/probe-channel "web:request")
-         (->> (lamina/filter* (comp nil? :duration)))
-         (lamina/receive-all (fn [bad-probe]
-                               (let [msg (format "Received bad probe %s\n"
-                                                 (pr-str bad-probe))]
-                                 (spit "log.clj" msg :append true)))))
-
-     (let [host "localhost" port 4005]
-       (printf "Starting swank on %s:%d\n" host port)
-       (swank/start-server :host host :port port))
-     nil))
-
-(defn stop []
-  (@tcp-server)
-  (reset! tcp-server nil)
-
-  (@http-server)
-  (reset! http-server nil)
-
-  (save-listeners (dosync (returning @listeners
-                            (ref-set listeners {})))))
+    {:shutdown (fn []
+                 (tcp)
+                 (http)
+                 (doseq [{:keys [shutdown]} (:modules config)]
+                   (shutdown)))}))
 
 (defn -main [& args]
   (when-let [[period] (seq args)]
