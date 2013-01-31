@@ -32,9 +32,12 @@
                  (lamina/map* (fn [[probe data]]
                                 [(str/replace probe #"\." ":")
                                  (formats/decode-json data)])))]
-    (lamina/receive-all ch*
-                        (fn [[probe data]]
-                          (trace/trace* probe [probe data])))))
+    (-> ch*
+        (doto (lamina/on-error (fn [e]
+                                 (spit "log.clj" (pr-str ["closing channel" e]) :append true))))
+        (lamina/receive-all
+         (fn [[probe data]]
+           (trace/trace* probe [probe data]))))))
 
 (def graphite-nexus
   "Messages sent to this channel will be siphoned out to the graphite server if possible,
