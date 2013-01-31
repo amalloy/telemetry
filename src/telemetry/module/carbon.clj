@@ -37,9 +37,5 @@
      :handler (constantly nil)
      :listen (fn listen [ch name]
                (-> ch
-                   (->> (lamina/map* (fn [before]
-                                       (?! before)))
-                    (lamina/mapcat* (graphite/graphite-sink name))
-                        (lamina/map* (fn [after]
-                                       (?! after))))
+                   (->> (lamina/mapcat* (graphite/graphite-sink name)))
                    (lamina/siphon nexus)))}))
