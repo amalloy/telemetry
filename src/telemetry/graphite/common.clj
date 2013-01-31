@@ -51,11 +51,9 @@
    - a pattern containing the * wildcard (in which case it is assumed to be grouped-by one field),
    - a pattern with *1, *2 wildcards (in which case it is assumed to be grouped-by a tuple)."
   [name]
-  (let [data-sink (if (re-find #"\*\d" name)
-                    (let [name (str/replace name #"\*(?!\d)" "*1")]
-                      (sink-by-name name rename-multiple))
-                    (if (re-find #"\*" name)
-                      (sink-by-name name rename-one)
-                      (timed-sink name)))]
-    (fn [[probe data]]
-      (data-sink data))))
+  (if (re-find #"\*\d" name)
+    (let [name (str/replace name #"\*(?!\d)" "*1")]
+      (sink-by-name name rename-multiple))
+    (if (re-find #"\*" name)
+      (sink-by-name name rename-one)
+      (timed-sink name))))
