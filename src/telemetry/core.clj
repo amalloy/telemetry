@@ -37,7 +37,7 @@
                                  (spit "log.clj" (pr-str ["closing channel" e]) :append true))))
         (lamina/receive-all
          (fn [[probe data]]
-           (trace/trace* probe [probe data]))))))
+           (trace/trace* probe data))))))
 
 (defn subscribe [config query]
   (cache/subscribe trace/local-trace-router query
@@ -51,10 +51,9 @@
   [config query]
   {:status 200
    :headers {"content-type" "application/json"}
-   :body (->> (subscribe config (?! (formats/url-decode query)))
-              (lamina/map* (fn [[probe data :as inspected]]
-                             (?! inspected)
-                             (str probe "\n" (pr-str data) "\n"))))})
+   :body (->> (subscribe config (formats/url-decode query))
+              (lamina/map* formats/encode-json->string)
+              (lamina/map* #(str % "\n")))})
 
 (defn remove-listener
   "Disconnects any channel writing to the given name/pattern."
