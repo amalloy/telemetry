@@ -18,8 +18,12 @@
    [telemetry.module.carbon :as carbon])
   (:use flatland.useful.debug))
 
-(def tcp-port 1845)
-(def http-port 1846)
+(def default-tcp-port 1845)
+(def default-http-port 1846)
+
+(def tcp-options {:delimiters ["\r\n" "\n"]
+                  :frame [(gloss/string :utf-8 :delimiters [" "])
+                          (gloss/string :utf-8)]})
 
 (def default-aggregation-period
   "Number of milliseconds lamina should buffer up periodic data before flushing."
@@ -129,7 +133,7 @@
   (fn [req]
     (?! (handler (?! req)))))
 
-(defn init [{:keys [modules aggregation-period] :as config}]
+(defn init [{:keys [modules tcp-port http-port aggregation-period] :as config}]
   (let [modules (into {} (for [{:keys [init options]} modules]
                            (let [module (init options)]
                              (when-not (:shutdown module)
@@ -142,10 +146,7 @@
                  (restore-listeners))
         tcp (tcp/start-tcp-server
              input-handler
-             {:port tcp-port
-              :delimiters ["\r\n" "\n"]
-              :frame [(gloss/string :utf-8 :delimiters [" "])
-                      (gloss/string :utf-8)]})
+             (merge tcp-options {:port (or tcp-port default-tcp-port)}))
         http (http/start-http-server
               (let [writers (routes (POST "/listen" [type name query]
                                       (add-listener config (keyword type) name query))
@@ -160,7 +161,7 @@
                     wrap-keyword-params
                     wrap-params
                     http/wrap-ring-handler))
-              {:port http-port})]
+              {:port (or http-port default-http-port)})]
 
     {:shutdown (fn []
                  (tcp)
