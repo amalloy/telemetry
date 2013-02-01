@@ -24,7 +24,7 @@
   (let [carbon-connector (connection/persistent-connection
                           #(carbon-channel host port)
                           {:on-connected (fn [ch]
-                                           (lamina/ground ch)
+                                           (lamina/ground ch) ;; ignore input from server
                                            (lamina/siphon nexus ch))})]
     (carbon-connector)
     (fn []
