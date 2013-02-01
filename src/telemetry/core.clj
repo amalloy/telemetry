@@ -85,7 +85,7 @@
                 assoc-in [type name]
                 (keyed [query channel unsubscribe])))
         {:status 204})) ;; no content
-    {:status 404 :body "Unrecognized listener type\n"}))
+    {:status 404 :body (format "Unrecognized listener type %s\n" (name (or type "nil")))}))
 
 (defn readable-listeners
   "A view of the listeners map which can be printed and reread."
