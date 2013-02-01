@@ -132,7 +132,22 @@
         (lamina/receive-all
          (fn [[probe data]]
            (trace/trace* probe data))))))
-(defn init [{:keys [modules tcp-port http-port aggregation-period] :as config}]
+
+(defn ring-handler [config]
+  (let [writers (routes (POST "/listen" [type name query]
+                          (add-listener config (keyword type) name query))
+                        (POST "/forget" [type name]
+                          (remove-listener config (keyword type) name)))
+        readers (routes (GET "/inspect" [query]
+                          (inspector config query))
+                        (GET "/listeners" []
+                          (get-listeners config)))]
+    (-> (routes (wrap-saving-listeners writers config)
+                readers)
+        wrap-keyword-params
+        wrap-params)))
+
+(defn init [{:keys [modules http-port tcp-port aggregation-period] :as config}]
   (let [modules (into {} (for [{:keys [init options]} modules]
                            (let [module (init options)]
                              (when-not (:shutdown module)
@@ -145,28 +160,16 @@
                  (restore-listeners))
         tcp (tcp/start-tcp-server tcp-handler
                                   (merge tcp-options {:port (or tcp-port default-tcp-port)}))
-        http (http/start-http-server
-              (let [writers (routes (POST "/listen" [type name query]
-                                      (add-listener config (keyword type) name query))
-                                    (POST "/forget" [type name]
-                                      (remove-listener config (keyword type) name)))
-                    readers (routes (GET "/inspect" [query]
-                                      (inspector config query))
-                                    (GET "/listeners" []
-                                      (get-listeners config)))]
-                (-> (routes (wrap-saving-listeners writers config)
-                            readers)
-                    wrap-keyword-params
-                    wrap-params
-                    http/wrap-ring-handler))
-              {:port (or http-port default-http-port)})]
-
+        handler (ring-handler config)
+        http (http/start-http-server (http/wrap-ring-handler handler)
+                                     {:port (or http-port default-http-port)})]
     {:shutdown (fn []
                  (tcp)
                  (http)
                  (doseq [[name {:keys [shutdown]}] (:modules config)]
                    (shutdown)))
-     :config config}))
+     :config config
+     :handler handler}))
 
 (defn destroy [server]
   ((:shutdown server)))
