@@ -6,14 +6,16 @@
             [lamina.connections :as connection])
   (:use flatland.useful.debug))
 
+(def wire-format
+  (gloss/compile-frame [(gloss/string :utf-8 :delimiters [" "])             ;; message type
+                        (gloss/string-float :utf-8 :delimiters [" "])       ;; count
+                        (gloss/string-integer :utf-8 :delimiters ["\n"])])) ;; timestamp
+
 (defn carbon-channel
   "Produce a channel that receives [name data time] tuples and sends them, formatted for carbon,
   to a server on the specified host and port."
   [host port]
-  (tcp/tcp-client {:host host :port port
-                   :frame [(gloss/string :utf-8 :delimiters [" "]) ;; message type
-                           (gloss/string-float :utf-8 :delimiters [" "]) ;; count
-                           (gloss/string-integer :utf-8 :delimiters ["\n"])]})) ;; timestamp
+  (tcp/tcp-client {:host host :port port :frame wire-format}))
 
 (defn init-connection
   "Starts a channel that will siphon from the given nexus into a carbon server forever.
