@@ -1,6 +1,6 @@
-(ns telemetry.core-test
+(ns telemetry.server-test
   (:use clojure.test)
-  (:require [telemetry.core :as telemetry]
+  (:require [telemetry.server :as telemetry]
             [telemetry.module.carbon :as carbon]
             [aleph.tcp :as tcp]
             [aleph.http :as http]

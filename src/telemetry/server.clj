@@ -1,4 +1,4 @@
-(ns telemetry.core
+(ns telemetry.server
   (:use [ring.middleware params keyword-params])
   (:require
    [clojure.string :as str]

@@ -2,5 +2,5 @@
   (:gen-class))
 
 (defn -main [& args]
-  (require 'telemetry.core)
-  (apply (resolve 'telemetry.core/-main) args))
+  (require 'telemetry.server)
+  (apply (resolve 'telemetry.server/-main) args))
