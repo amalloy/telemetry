@@ -29,9 +29,10 @@
   "Number of milliseconds lamina should buffer up periodic data before flushing."
   30000)
 
-(defn subscribe [config query]
+(defn subscribe
+  [query period]
   (cache/subscribe trace/local-trace-router query
-                   :period (or (:period config) default-aggregation-period)))
+                   :period period))
 
 ;;; functions that work on the listener list, and return Ring responses
 
@@ -41,7 +42,7 @@
   [config query]
   {:status 200
    :headers {"content-type" "application/json"}
-   :body (->> (subscribe config (formats/url-decode query))
+   :body (->> (subscribe (formats/url-decode query) (:period config))
               (lamina/map* formats/encode-json->string)
               (lamina/map* #(str % "\n")))})
 
@@ -59,19 +60,20 @@
 (defn add-listener
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
-  [config type name query]
-  (if-let [connect (get-in config [:modules type :listen])]
-    (do
-      (remove-listener config type name)
-      (let [channel (doto (subscribe config query)
-                      (connect name))
-            unsubscribe #(lamina/close channel)]
-        (dosync
-         (alter (:listeners config)
-                assoc-in [type name]
-                (keyed [query channel unsubscribe])))
-        {:status 204})) ;; no content
-    {:status 404 :body (format "Unrecognized listener type %s\n" (name (or type "nil")))}))
+  [config type label query]
+  (let [{:keys [listen period]} (get-in config [:modules type])]
+    (if listen
+      (do
+        (remove-listener config type label)
+        (let [channel (doto (subscribe query (period label))
+                        (listen label))
+              unsubscribe #(lamina/close channel)]
+          (dosync
+           (alter (:listeners config)
+                  assoc-in [type label]
+                  (keyed [query channel unsubscribe])))
+          {:status 204})) ;; no content
+      {:status 404 :body (format "Unrecognized listener type %s\n" (name (or type "nil")))})))
 
 (defn readable-listeners
   "A view of the listeners map which can be printed and reread."
@@ -155,13 +157,20 @@
         wrap-keyword-params
         wrap-params)))
 
-(defn init [{:keys [modules http-port tcp-port aggregation-period] :as config}]
+(defn wrap-default [f default]
+  (if f
+    (fn [x]
+      (or (f x) default))
+    (constantly default)))
+
+(defn init [{:keys [modules http-port tcp-port period] :as config}]
   (let [modules (into {} (for [{:keys [init options]} modules]
                            (let [module (init options)]
                              (when-not (:shutdown module)
                                (throw (Exception. (format "Module %s must provide a shutdown hook."
                                                           (:name module)))))
-                             [(:name module) module])))
+                             [(:name module) (update-in module [:period]
+                                                        wrap-default period)])))
         config (doto (assoc config
                        :listeners (ref {})
                        :modules modules)
