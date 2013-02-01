@@ -29,20 +29,6 @@
   "Number of milliseconds lamina should buffer up periodic data before flushing."
   30000)
 
-(defn input-handler
-  "Forwards each message it receives into the trace router."
-  [ch _]
-  (let [ch* (->> ch
-                 (lamina/map* (fn [[probe data]]
-                                [(str/replace probe #"\." ":")
-                                 (formats/decode-json data)])))]
-    (-> ch*
-        (doto (lamina/on-error (fn [e]
-                                 (spit "log.clj" (pr-str ["closing channel" e]) :append true))))
-        (lamina/receive-all
-         (fn [[probe data]]
-           (trace/trace* probe data))))))
-
 (defn subscribe [config query]
   (cache/subscribe trace/local-trace-router query
                    :period (or (:period config) default-aggregation-period)))
@@ -133,6 +119,19 @@
   (fn [req]
     (?! (handler (?! req)))))
 
+(defn tcp-handler
+  "Forwards each message it receives into the trace router."
+  [ch _]
+  (let [ch* (->> ch
+                 (lamina/map* (fn [[probe data]]
+                                [(str/replace probe #"\." ":")
+                                 (formats/decode-json data)])))]
+    (-> ch*
+        (doto (lamina/on-error (fn [e]
+                                 (spit "log.clj" (pr-str ["closing channel" e]) :append true))))
+        (lamina/receive-all
+         (fn [[probe data]]
+           (trace/trace* probe data))))))
 (defn init [{:keys [modules tcp-port http-port aggregation-period] :as config}]
   (let [modules (into {} (for [{:keys [init options]} modules]
                            (let [module (init options)]
@@ -144,9 +143,8 @@
                        :listeners (ref {})
                        :modules modules)
                  (restore-listeners))
-        tcp (tcp/start-tcp-server
-             input-handler
-             (merge tcp-options {:port (or tcp-port default-tcp-port)}))
+        tcp (tcp/start-tcp-server tcp-handler
+                                  (merge tcp-options {:port (or tcp-port default-tcp-port)}))
         http (http/start-http-server
               (let [writers (routes (POST "/listen" [type name query]
                                       (add-listener config (keyword type) name query))
