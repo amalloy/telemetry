@@ -12,7 +12,7 @@
    (aleph [formats :as formats]
           [http :as http]
           [tcp :as tcp])
-   [compojure.core :refer [routes GET POST]]
+   [compojure.core :refer [routes GET POST context]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
    [telemetry.module.carbon :as carbon])
@@ -119,6 +119,13 @@
   (fn [req]
     (?! (handler (?! req)))))
 
+(defn module-routes [{:keys [modules] :as config}]
+  (apply routes
+         (for [[module-name {:keys [handler]}] modules
+               :when handler]
+           (context (str "/" (name module-name)) []
+                    handler))))
+
 (defn tcp-handler
   "Forwards each message it receives into the trace router."
   [ch _]
@@ -143,7 +150,8 @@
                         (GET "/listeners" []
                           (get-listeners config)))]
     (-> (routes (wrap-saving-listeners writers config)
-                readers)
+                readers
+                (module-routes config))
         wrap-keyword-params
         wrap-params)))
 
