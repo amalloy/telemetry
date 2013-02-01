@@ -36,5 +36,5 @@
           (is time)))
 
       (finally (lamina/close tcp-client)
-               (telemetry/destroy server)
+               (telemetry/destroy! server)
                (carbon-server)))))

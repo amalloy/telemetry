@@ -171,15 +171,15 @@
         handler (ring-handler config)
         http (http/start-http-server (http/wrap-ring-handler handler)
                                      {:port (or http-port default-http-port)})]
-    {:shutdown (fn []
+    {:shutdown (fn shutdown []
                  (tcp)
                  (http)
-                 (doseq [[name {:keys [shutdown]}] (:modules config)]
+                 (doseq [[module-name {:keys [shutdown]}] (:modules config)]
                    (shutdown)))
      :config config
      :handler handler}))
 
-(defn destroy [server]
+(defn destroy! [server]
   ((:shutdown server)))
 
 (defn -main [& args]
