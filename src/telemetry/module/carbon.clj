@@ -3,7 +3,8 @@
             [aleph.tcp :as tcp]
             [gloss.core :as gloss]
             [telemetry.graphite.common :as graphite]
-            [lamina.connections :as connection])
+            [lamina.connections :as connection]
+            [compojure.core :refer [GET]])
   (:use flatland.useful.debug))
 
 (def wire-format
@@ -36,7 +37,8 @@
 
     {:name :carbon
      :shutdown stop-carbon
-     :handler (constantly nil)
+     :handler (GET "/render" []
+                {:status 200 :body "Carbon's sample handler."})
      :listen (fn listen [ch name]
                (-> ch
                    (->> (lamina/mapcat* (graphite/graphite-sink name)))
