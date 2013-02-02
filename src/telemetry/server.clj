@@ -18,18 +18,26 @@
    [telemetry.module.carbon :as carbon])
   (:use flatland.useful.debug))
 
-(def default-tcp-port 1845)
-(def default-http-port 1846)
+(def default-tcp-port
+  "The port on which telemetry listens for incoming traces."
+  1845)
+(def default-http-port
+  "The port to run the telemetry administration webserver on."
+  1846)
 
-(def tcp-options {:delimiters ["\r\n" "\n"]
-                  :frame [(gloss/string :utf-8 :delimiters [" "])
-                          (gloss/string :utf-8)]})
+(def tcp-options
+  "The gloss frame the telemetry tcp server expects to receive."
+  {:delimiters ["\r\n" "\n"]
+   :frame [(gloss/string :utf-8 :delimiters [" "])
+           (gloss/string :utf-8)]})
 
 (def default-aggregation-period
   "Number of milliseconds lamina should buffer up periodic data before flushing."
   30000)
 
 (defn subscribe
+  "Subscribe to the given trace descriptor, returning a channel of the resuts. Sets the
+   period for all periodic operators before parsing."
   [query period]
   (cache/subscribe trace/local-trace-router query
                    :period period))
@@ -37,8 +45,8 @@
 ;;; functions that work on the listener list, and return Ring responses
 
 (defn inspector
-  "Inspect or debug a probe query without sending it to graphite, by returning an endless, streaming
-   HTTP response of its values."
+  "Inspect or debug a probe query without sending it to any listeners, by returning an endless,
+   streaming HTTP response of its values."
   [config query]
   {:status 200
    :headers {"content-type" "application/json"}
@@ -86,7 +94,7 @@
                    [name (:query listener)]))])))
 
 (defn get-listeners
-  "Produces a summary of all probe queries and the graphite names they're writing to."
+  "Produces a summary of all probe queries and the listeners they're writing to."
   [config]
   {:status 200 :headers {"content-type" "application/json"}
    :body (str (formats/encode-json->string (readable-listeners @(:listeners config)))
@@ -121,7 +129,17 @@
   (fn [req]
     (?! (handler (?! req)))))
 
-(defn module-routes [{:keys [modules] :as config}]
+(defn wrap-404 [handler]
+  (fn [req]
+    (or (handler req)
+        {:status 404})))
+
+(defn module-routes
+  "Constructs routes for delegating to installed modules.
+   A module named foo will be in charge of handling any request under /foo.
+
+   For example, /foo/bar will be sent to the foo module :hander as a request for /bar."
+  [{:keys [modules] :as config}]
   (apply routes
          (for [[module-name {:keys [handler]}] modules
                :when handler]
@@ -142,7 +160,9 @@
          (fn [[probe data]]
            (trace/trace* probe data))))))
 
-(defn ring-handler [config]
+(defn ring-handler
+  "Builds a telemetry ring handler from a config map."
+  [config]
   (let [writers (routes (POST "/listen" [type name query]
                           (add-listener config (keyword type) name query))
                         (POST "/forget" [type name]
@@ -155,15 +175,22 @@
                 readers
                 (module-routes config))
         wrap-keyword-params
-        wrap-params)))
+        wrap-params
+        wrap-404)))
 
-(defn wrap-default [f default]
+(defn wrap-default
+  "Returns a function which calls f, replacing nil with default."
+  [f default]
   (if f
     (fn [x]
       (or (f x) default))
     (constantly default)))
 
-(defn init [{:keys [modules http-port tcp-port period] :as config}]
+(defn init
+  "Starts the telemetry http and tcp servers, and registers any modules given. Returns a server
+  handle which can be terminated via destroy!. The handle is just a map with some useful data, but
+  should be considered opaque: tamper at your own risk."
+  [{:keys [modules http-port tcp-port period] :or {period 1000} :as config}]
   (let [modules (into {} (for [{:keys [init options]} modules]
                            (let [module (init options)]
                              (when-not (:shutdown module)
@@ -188,10 +215,14 @@
      :config config
      :handler handler}))
 
-(defn destroy! [server]
+(defn destroy!
+  "Given a server handle returned by init, shuts down all running servers and modules."
+  [server]
   ((:shutdown server)))
 
-(defn -main [& args]
+(defn -main
+  "Starts up a basic telemetry server with all the default settings and a carbon module."
+  [& args]
   (let [period (if-let [[period] (seq args)]
                  (Long/parseLong period)
                  default-aggregation-period)]
