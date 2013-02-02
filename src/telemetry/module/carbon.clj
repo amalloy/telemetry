@@ -39,7 +39,7 @@
      :shutdown stop-carbon
      :handler (GET "/render" []
                 {:status 200 :body "Carbon's sample handler."})
-     :period (constantly 5000)
+     :period (constantly 5000) ;; TODO parse storage-schemas.conf
      :listen (fn listen [ch name]
                (-> ch
                    (->> (lamina/mapcat* (graphite/graphite-sink name)))
