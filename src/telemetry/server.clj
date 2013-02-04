@@ -228,6 +228,9 @@
   (let [period (if-let [[period] (seq args)]
                  (Long/parseLong period)
                  default-aggregation-period)]
+    (let [host "localhost" port 4005]
+      (printf "Starting swank on %s:%d\n" host port)
+      (swank/start-server :host host :port port))
     (def server (init {:period period, :config-path "config.clj"
                        :modules [{:init carbon/init
                                   :options {:host "localhost" :port 2003
