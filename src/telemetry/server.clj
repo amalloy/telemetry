@@ -2,6 +2,7 @@
   (:use [ring.middleware params keyword-params])
   (:require
    [clojure.string :as str]
+   [clojure.java.io :as io]
    [swank.swank :as swank]
    (lamina [core :as lamina]
            [connections :as connection]
@@ -16,6 +17,7 @@
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
    [telemetry.module.carbon :as carbon])
+  (:import (java.io StringReader BufferedReader IOException))
   (:use flatland.useful.debug))
 
 (def default-tcp-port
@@ -228,4 +230,8 @@
                  default-aggregation-period)]
     (def server (init {:period period, :config-path "config.clj"
                        :modules [{:init carbon/init
-                                  :options {:host "localhost" :port 2003}}]}))))
+                                  :options {:host "localhost" :port 2003
+                                            :config-reader #(try
+                                                              (io/reader "/opt/graphite/conf/storage-schemas.conf")
+                                                              (catch IOException e
+                                                                (BufferedReader. (StringReader. ""))))}}]}))))
