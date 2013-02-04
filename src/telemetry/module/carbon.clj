@@ -4,6 +4,7 @@
             [gloss.core :as gloss]
             [telemetry.graphite.common :as graphite]
             [lamina.connections :as connection]
+            [telemetry.module.carbon.config :as config]
             [compojure.core :refer [GET]])
   (:use flatland.useful.debug))
 
@@ -11,6 +12,22 @@
   (gloss/compile-frame [(gloss/string :utf-8 :delimiters [" "])             ;; message type
                         (gloss/string-float :utf-8 :delimiters [" "])       ;; count
                         (gloss/string-integer :utf-8 :delimiters ["\n"])])) ;; timestamp
+
+(defn granularity-decider
+  "Given a thunk that produces a reader over carbon's storage-schemas.conf file, returns a function
+  from label (ie name) to granularity, in milliseconds. Note that this reloads the config file every
+  time a granularity is requested, to allow for the possibility that the configuration has
+  changed. This will only happen when a new listener is added, so it shouldn't be a big deal; if
+  you'd rather never reload, you can provide a thunk that uses your own preferred caching method."
+  [config-reader]
+  (when config-reader
+    (fn [label]
+      (with-open [reader (config-reader)]
+        (let [lines (line-seq reader)
+              rules (config/parse-carbon-config lines)]
+          (first (for [{:keys [pattern retentions]} rules
+                       :when (re-find pattern label)]
+                   (* 1000 (config/as-seconds (:granularity (first retentions)))))))))))
 
 (defn carbon-channel
   "Produce a channel that receives [name data time] tuples and sends them, formatted for carbon,
@@ -31,7 +48,7 @@
     (fn []
       (connection/close-connection carbon-connector))))
 
-(defn init [{:keys [host port] :or {host "localhost" port 2003}}]
+(defn init [{:keys [host port config-reader] :or {host "localhost" port 2003}}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
         stop-carbon (init-connection nexus host port)]
 
@@ -39,7 +56,7 @@
      :shutdown stop-carbon
      :handler (GET "/render" []
                 {:status 200 :body "Carbon's sample handler."})
-     :period (constantly 5000) ;; TODO parse storage-schemas.conf
+     :period (granularity-decider config-reader)
      :listen (fn listen [ch name]
                (-> ch
                    (->> (lamina/mapcat* (graphite/graphite-sink name)))
