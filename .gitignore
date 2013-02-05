@@ -10,3 +10,4 @@ pom.xml
 .lein-plugins
 /config.clj
 /log.clj
+*~

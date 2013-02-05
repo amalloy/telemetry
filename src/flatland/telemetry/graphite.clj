@@ -1,10 +1,11 @@
-(ns telemetry.module.carbon
+(ns flatland.telemetry.graphite
+  "Module for sending data to graphite."
   (:require [lamina.core :as lamina]
             [aleph.tcp :as tcp]
             [gloss.core :as gloss]
-            [telemetry.graphite.common :as graphite]
+            [flatland.telemetry.graphing :as graphing]
             [lamina.connections :as connection]
-            [telemetry.module.carbon.config :as config]
+            [flatland.telemetry.graphite.config :as config]
             [compojure.core :refer [GET]])
   (:use flatland.useful.debug))
 
@@ -29,35 +30,34 @@
                        :when (re-find pattern label)]
                    (* 1000 (config/as-seconds (:granularity (first retentions)))))))))))
 
-(defn carbon-channel
-  "Produce a channel that receives [name data time] tuples and sends them, formatted for carbon,
+(defn graphite-channel
+  "Produce a channel that receives [name data time] tuples and sends them, formatted for graphite,
   to a server on the specified host and port."
   [host port]
   (tcp/tcp-client {:host host :port port :frame wire-format}))
 
 (defn init-connection
-  "Starts a channel that will siphon from the given nexus into a carbon server forever.
+  "Starts a channel that will siphon from the given nexus into a graphite server forever.
    Returns a thunk that will close the connection."
   [nexus host port]
-  (let [carbon-connector (connection/persistent-connection
-                          #(carbon-channel host port)
-                          {:on-connected (fn [ch]
-                                           (lamina/ground ch) ;; ignore input from server
-                                           (lamina/siphon nexus ch))})]
-    (carbon-connector)
+  (let [graphite-connector (connection/persistent-connection
+                            #(graphite-channel host port)
+                            {:on-connected (fn [ch]
+                                             (lamina/ground ch) ;; ignore input from server
+                                             (lamina/siphon nexus ch))})]
+    (graphite-connector)
     (fn []
-      (connection/close-connection carbon-connector))))
+      (connection/close-connection graphite-connector))))
 
 (defn init [{:keys [host port config-reader] :or {host "localhost" port 2003}}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
-        stop-carbon (init-connection nexus host port)]
-
-    {:name :carbon
-     :shutdown stop-carbon
+        stop-graphite (init-connection nexus host port)]
+    {:name :graphite
+     :shutdown stop-graphite
      :handler (GET "/render" []
-                {:status 200 :body "Carbon's sample handler."})
+                   {:status 200 :body "Graphite's sample handler."})
      :period (granularity-decider config-reader)
      :listen (fn listen [ch name]
                (-> ch
-                   (->> (lamina/mapcat* (graphite/graphite-sink name)))
+                   (->> (lamina/mapcat* (graphing/sink name)))
                    (lamina/siphon nexus)))}))

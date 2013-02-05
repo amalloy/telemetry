@@ -1,4 +1,4 @@
-(ns telemetry.server
+(ns flatland.telemetry.server
   (:use [ring.middleware params keyword-params])
   (:require
    [clojure.string :as str]
@@ -16,7 +16,7 @@
    [compojure.core :refer [routes GET POST context]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
-   [telemetry.module.carbon :as carbon])
+   [flatland.telemetry.graphite :as graphite])
   (:import (java.io StringReader BufferedReader IOException))
   (:use flatland.useful.debug))
 
@@ -221,20 +221,3 @@
   "Given a server handle returned by init, shuts down all running servers and modules."
   [server]
   ((:shutdown server)))
-
-(defn -main
-  "Starts up a basic telemetry server with all the default settings and a carbon module."
-  [& args]
-  (let [period (if-let [[period] (seq args)]
-                 (Long/parseLong period)
-                 default-aggregation-period)]
-    (let [host "localhost" port 4005]
-      (printf "Starting swank on %s:%d\n" host port)
-      (swank/start-server :host host :port port))
-    (def server (init {:period period, :config-path "config.clj"
-                       :modules [{:init carbon/init
-                                  :options {:host "localhost" :port 2003
-                                            :config-reader #(try
-                                                              (io/reader "/opt/graphite/conf/storage-schemas.conf")
-                                                              (catch IOException e
-                                                                (BufferedReader. (StringReader. ""))))}}]}))))

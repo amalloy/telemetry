@@ -1,4 +1,4 @@
-(ns telemetry.graphite.common
+(ns flatland.telemetry.graphing
   (:require [clojure.string :as str])
   (:import java.util.Date))
 
@@ -25,7 +25,7 @@
   (str/replace pattern #"\*" key))
 
 ;;; lamina channel transformers, to turn values from a probe descriptor into a sequence of tuples
-;;; suitable for encoding and sending out to the graphite server.
+;;; suitable for encoding and sending out to the graphite server or phonograph db.
 
 (defn timed-sink
   "Returns a function which emits each datum decorated with the given label and the current time."
@@ -44,7 +44,7 @@
         (let [name (rename-fn pattern k)]
           [name v now])))))
 
-(defn graphite-sink
+(defn sink
   "Determines what kind of pattern name is, and creates an appropriate transformer for its channel.
    name may be:
    - an ordinary name (in which case its values are emitted unchanged),

@@ -1,4 +1,4 @@
-(ns telemetry.module.carbon.config)
+(ns flatland.telemetry.graphite.config)
 
 (def unit-abbrevs
   {"s" :seconds, "m" :minutes, "h" :hours, "d" :days, "y" :years})
