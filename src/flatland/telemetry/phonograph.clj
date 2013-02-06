@@ -38,7 +38,14 @@
                              (map retention->archive (archive-retentions label)))
                       (phonograph/open full-path)))))))
 
-(defn init [{:keys [archive-retentions] :as config}]
+(defn init
+  "Supported config options:
+   - base-path: the path under which to store all the phonograph files.
+   - db-opts: a function taking in a label and returning options to open its phonograph file
+   - archive-retentions: a function taking in a label and returning a sequence of storage specs.
+     each storage spec should have a :granularity and a :duration, in time units as supported by
+     flatland.telemetry.graphite.config/unit-multipliers."
+  [{:keys [base-path db-opts archive-retentions] :as config}]
   (let [open (phonograph-opener config)
         nexus (lamina/channel* :permanent? true :grounded? true)]
     (lamina/receive-all nexus
