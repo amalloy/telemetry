@@ -8,6 +8,7 @@
                  [compojure "1.1.1"]
                  [swank-clojure "1.4.2"]
                  [io.netty/netty "3.5.9.Final"]
-                 [org.flatland/useful "0.9.0"]]
+                 [org.flatland/useful "0.9.0"]
+                 [org.flatland/phonograph "0.1.0"]]
   :main telemetry.main
   :uberjar-name "telemetry.jar")
