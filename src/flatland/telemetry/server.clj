@@ -151,17 +151,24 @@
 
 (defn tcp-handler
   "Forwards each message it receives into the trace router."
-  [ch _]
-  (let [ch* (->> ch
-                 (lamina/map* (fn [[probe data]]
-                                [(str/replace probe #"\." ":")
-                                 (formats/decode-json data)])))]
-    (-> ch*
-        (doto (lamina/on-error (fn [e]
-                                 (spit "log.clj" (pr-str ["closing channel" e]) :append true))))
-        (lamina/receive-all
-         (fn [[probe data]]
-           (trace/trace* probe data))))))
+  [config]
+  (let [clients (:clients config)]
+    (fn [ch {:keys [address] :as client-info}]
+      (let [log-event (fn [event]
+                        (swap! clients update-in [address :events]
+                               (fnil conj [])
+                               (assoc event :date (System/currentTimeMillis))))
+            ch* (->> ch
+                     (lamina/map* (fn [[probe data]]
+                                    [(str/replace probe #"\." ":")
+                                     (formats/decode-json data)])))]
+        (log-event {:type :connect})
+        (-> ch*
+            (doto (lamina/on-error #(log-event {:type :drop, :error %})))
+            (lamina/receive-all
+             (fn [[probe data]]
+               (swap! clients update-in [address :trace-count] (fnil inc 0))
+               (trace/trace* probe data))))))))
 
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
@@ -203,9 +210,10 @@
                                                         wrap-default period)])))
         config (doto (assoc config
                        :listeners (ref {})
+                       :clients (atom {})
                        :modules modules)
                  (restore-listeners))
-        tcp (tcp/start-tcp-server tcp-handler
+        tcp (tcp/start-tcp-server (tcp-handler config)
                                   (merge tcp-options {:port (or tcp-port default-tcp-port)}))
         handler (ring-handler config)
         http (http/start-http-server (http/wrap-ring-handler handler)
