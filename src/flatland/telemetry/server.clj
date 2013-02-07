@@ -16,7 +16,8 @@
    [compojure.core :refer [routes GET POST context]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
-   [flatland.telemetry.graphite :as graphite])
+   [flatland.telemetry.graphite :as graphite]
+   [flatland.telemetry.phonograph :as phonograph])
   (:import (java.io StringReader BufferedReader IOException))
   (:use flatland.useful.debug))
 
@@ -221,3 +222,20 @@
   "Given a server handle returned by init, shuts down all running servers and modules."
   [server]
   ((:shutdown server)))
+
+(defn -main [& args]
+  (let [period (if-let [[period] (seq args)]
+                 (Long/parseLong period)
+                 default-aggregation-period)
+        read-schema #(try (io/reader "/opt/graphite/conf/storage-schemas.conf")
+                          (catch IOException e
+                            (BufferedReader. (StringReader. ""))))]
+    (let [host "localhost" port 4005]
+      (printf "Starting swank on %s:%d\n" host port)
+      (swank/start-server :host host :port port))
+    (def server (init {:period period, :config-path "config.clj"
+                       :modules [{:init graphite/init
+                                  :options {:host "localhost" :port 2003
+                                            :config-reader read-schema}}
+                                 {:init phonograph/init
+                                  :options {:base-path "/home/akm/.phonograph"}}]}))))

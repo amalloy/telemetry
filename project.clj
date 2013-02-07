@@ -10,5 +10,5 @@
                  [io.netty/netty "3.5.9.Final"]
                  [org.flatland/useful "0.9.0"]
                  [org.flatland/phonograph "0.1.0"]]
-  :main telemetry.main
+  :main flatland.telemetry
   :uberjar-name "telemetry.jar")
