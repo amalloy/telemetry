@@ -8,9 +8,9 @@
             [lamina.connections :as connection])
   (:use flatland.useful.debug))
 
-(def graphite-test-port 4006)
 (def telemetry-tcp-port 5001)
 (def telemetry-http-port 5002)
+(def graphite-test-port 5003)
 
 (deftest test-graphite
   (let [graphite-inputs (lamina/channel)
