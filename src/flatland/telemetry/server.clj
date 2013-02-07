@@ -238,4 +238,4 @@
                                   :options {:host "localhost" :port 2003
                                             :config-reader read-schema}}
                                  {:init phonograph/init
-                                  :options {:base-path "/home/akm/.phonograph"}}]}))))
+                                  :options {:base-path "./storage/phonograph"}}]}))))
