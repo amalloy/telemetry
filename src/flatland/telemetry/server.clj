@@ -213,6 +213,9 @@
     {:shutdown (fn shutdown []
                  (tcp)
                  (http)
+                 (doseq [[module listeners] @(:listeners config)
+                         [name listener] listeners]
+                   ((:unsubscribe listener)))
                  (doseq [[module-name {:keys [shutdown]}] (:modules config)]
                    (shutdown)))
      :config config
