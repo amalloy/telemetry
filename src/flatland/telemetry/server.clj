@@ -1,5 +1,5 @@
 (ns flatland.telemetry.server
-  (:use [ring.middleware params keyword-params])
+  (:use [ring.middleware params keyword-params format-params format-response])
   (:require
    [clojure.string :as str]
    [clojure.java.io :as io]
@@ -13,10 +13,11 @@
    (aleph [formats :as formats]
           [http :as http]
           [tcp :as tcp])
-   [compojure.core :refer [routes GET POST context]]
+   [compojure.core :refer [routes GET POST ANY context]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
-   [flatland.telemetry.graphite :as graphite])
+   [flatland.telemetry.graphite :as graphite]
+   [flatland.telemetry.phonograph :as phonograph])
   (:import (java.io StringReader BufferedReader IOException))
   (:use flatland.useful.debug))
 
@@ -150,17 +151,22 @@
 
 (defn tcp-handler
   "Forwards each message it receives into the trace router."
-  [ch _]
-  (let [ch* (->> ch
-                 (lamina/map* (fn [[probe data]]
-                                [(str/replace probe #"\." ":")
-                                 (formats/decode-json data)])))]
-    (-> ch*
-        (doto (lamina/on-error (fn [e]
-                                 (spit "log.clj" (pr-str ["closing channel" e]) :append true))))
-        (lamina/receive-all
-         (fn [[probe data]]
-           (trace/trace* probe data))))))
+  [config]
+  (let [clients (:clients config)]
+    (fn [ch {:keys [address] :as client-info}]
+      (let [log-event (let [inc (fnil inc 0)]
+                        (fn [type]
+                          (send clients update-in [address type] inc)))
+            ch* (->> (doto ch (lamina/on-closed #(log-event {:type :drop})))
+                     (lamina/map* (fn [[probe data]]
+                                    [(str/replace probe #"\." ":")
+                                     (formats/decode-json data)])))]
+        (log-event {:type :connect})
+        (-> ch*
+            (lamina/receive-all
+             (fn [[probe data]]
+               (log-event :trace)
+               (trace/trace* probe data))))))))
 
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
@@ -169,15 +175,17 @@
                           (add-listener config (keyword type) name query))
                         (POST "/forget" [type name]
                           (remove-listener config (keyword type) name)))
-        readers (routes (GET "/inspect" [query]
+        readers (routes (ANY "/inspect" [query]
                           (inspector config query))
-                        (GET "/listeners" []
+                        (ANY "/listeners" []
                           (get-listeners config)))]
     (-> (routes (wrap-saving-listeners writers config)
                 readers
                 (module-routes config))
         wrap-keyword-params
         wrap-params
+        wrap-json-params
+        wrap-json-response
         wrap-404)))
 
 (defn wrap-default
@@ -202,9 +210,10 @@
                                                         wrap-default period)])))
         config (doto (assoc config
                        :listeners (ref {})
+                       :clients (agent {})
                        :modules modules)
                  (restore-listeners))
-        tcp (tcp/start-tcp-server tcp-handler
+        tcp (tcp/start-tcp-server (tcp-handler config)
                                   (merge tcp-options {:port (or tcp-port default-tcp-port)}))
         handler (ring-handler config)
         http (http/start-http-server (http/wrap-ring-handler handler)
@@ -212,6 +221,9 @@
     {:shutdown (fn shutdown []
                  (tcp)
                  (http)
+                 (doseq [[module listeners] @(:listeners config)
+                         [name listener] listeners]
+                   ((:unsubscribe listener)))
                  (doseq [[module-name {:keys [shutdown]}] (:modules config)]
                    (shutdown)))
      :config config
@@ -221,3 +233,20 @@
   "Given a server handle returned by init, shuts down all running servers and modules."
   [server]
   ((:shutdown server)))
+
+(defn -main [& args]
+  (let [period (if-let [[period] (seq args)]
+                 (Long/parseLong period)
+                 default-aggregation-period)
+        read-schema #(try (io/reader "/opt/graphite/conf/storage-schemas.conf")
+                          (catch IOException e
+                            (BufferedReader. (StringReader. ""))))]
+    (let [host "localhost" port 4005]
+      (printf "Starting swank on %s:%d\n" host port)
+      (swank/start-server :host host :port port))
+    (def server (init {:period period, :config-path "config.clj"
+                       :modules [{:init graphite/init
+                                  :options {:host "localhost" :port 2003
+                                            :config-reader read-schema}}
+                                 {:init phonograph/init
+                                  :options {:base-path "./storage/phonograph"}}]}))))

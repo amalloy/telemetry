@@ -8,9 +8,9 @@
             [lamina.connections :as connection])
   (:use flatland.useful.debug))
 
-(def graphite-test-port 4006)
 (def telemetry-tcp-port 5001)
 (def telemetry-http-port 5002)
+(def graphite-test-port 5003)
 
 (deftest test-graphite
   (let [graphite-inputs (lamina/channel)
@@ -27,8 +27,8 @@
     (try
       (let [url-base (str "http://localhost:" telemetry-http-port)]
         (http/sync-http-request {:method :post :url (str url-base "/listen")
-                                 :body "name=x&query=abc.x&type=graphite"
-                                 :headers {"content-type" "application/x-www-form-urlencoded"}})
+                                 :body "{\"name\": \"x\", \"query\": \"abc.x\", \"type\": \"graphite\"}"
+                                 :headers {"content-type" "application/json"}})
         (lamina/enqueue tcp-client ["abc" "{\"x\":1}"])
         (let [[label value time] @(lamina/read-channel graphite-inputs)]
           (is (= "x" label))
