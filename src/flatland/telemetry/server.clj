@@ -154,10 +154,9 @@
   [config]
   (let [clients (:clients config)]
     (fn [ch {:keys [address] :as client-info}]
-      (let [log-event (fn [event]
-                        (swap! clients update-in [address :events]
-                               (fnil conj [])
-                               (assoc event :date (System/currentTimeMillis))))
+      (let [log-event (fn [type]
+                        (send clients update-in [address type]
+                              (fnil inc 0)))
             ch* (->> (doto ch (lamina/on-closed #(log-event {:type :drop})))
                      (lamina/map* (fn [[probe data]]
                                     [(str/replace probe #"\." ":")
@@ -166,7 +165,7 @@
         (-> ch*
             (lamina/receive-all
              (fn [[probe data]]
-               (swap! clients update-in [address :trace-count] (fnil inc 0))
+               (log-event :trace)
                (trace/trace* probe data))))))))
 
 (defn ring-handler
@@ -209,7 +208,7 @@
                                                         wrap-default period)])))
         config (doto (assoc config
                        :listeners (ref {})
-                       :clients (atom {})
+                       :clients (agent {})
                        :modules modules)
                  (restore-listeners))
         tcp (tcp/start-tcp-server (tcp-handler config)
