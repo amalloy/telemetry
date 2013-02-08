@@ -158,7 +158,7 @@
                         (swap! clients update-in [address :events]
                                (fnil conj [])
                                (assoc event :date (System/currentTimeMillis))))
-            ch* (->> (doto ch (lamina/on-error #(log-event {:type :drop, :error %})))
+            ch* (->> (doto ch (lamina/on-closed #(log-event {:type :drop})))
                      (lamina/map* (fn [[probe data]]
                                     [(str/replace probe #"\." ":")
                                      (formats/decode-json data)])))]
