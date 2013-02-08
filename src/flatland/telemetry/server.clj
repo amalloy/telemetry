@@ -238,9 +238,7 @@
   (let [period (if-let [[period] (seq args)]
                  (Long/parseLong period)
                  default-aggregation-period)
-        read-schema #(try (io/reader "/opt/graphite/conf/storage-schemas.conf")
-                          (catch IOException e
-                            (BufferedReader. (StringReader. ""))))]
+        read-schema #(io/reader "/opt/graphite/conf/storage-schemas.conf")]
     (let [host "localhost" port 4005]
       (printf "Starting swank on %s:%d\n" host port)
       (swank/start-server :host host :port port))
