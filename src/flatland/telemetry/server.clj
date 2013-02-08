@@ -154,9 +154,9 @@
   [config]
   (let [clients (:clients config)]
     (fn [ch {:keys [address] :as client-info}]
-      (let [log-event (fn [type]
-                        (send clients update-in [address type]
-                              (fnil inc 0)))
+      (let [log-event (let [inc (fnil inc 0)]
+                        (fn [type]
+                          (send clients update-in [address type] inc)))
             ch* (->> (doto ch (lamina/on-closed #(log-event {:type :drop})))
                      (lamina/map* (fn [[probe data]]
                                     [(str/replace probe #"\." ":")
