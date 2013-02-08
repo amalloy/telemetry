@@ -1,5 +1,5 @@
 (ns flatland.telemetry.server
-  (:use [ring.middleware params keyword-params])
+  (:use [ring.middleware params keyword-params format-params])
   (:require
    [clojure.string :as str]
    [clojure.java.io :as io]
@@ -184,6 +184,7 @@
                 (module-routes config))
         wrap-keyword-params
         wrap-params
+        wrap-json-params
         wrap-404)))
 
 (defn wrap-default

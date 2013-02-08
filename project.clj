@@ -9,6 +9,7 @@
                  [swank-clojure "1.4.2"]
                  [io.netty/netty "3.5.9.Final"]
                  [org.flatland/useful "0.9.0"]
-                 [org.flatland/phonograph "0.1.1"]]
+                 [org.flatland/phonograph "0.1.1"]
+                 [ring-middleware-format "0.2.4"]]
   :main flatland.telemetry
   :uberjar-name "telemetry.jar")
