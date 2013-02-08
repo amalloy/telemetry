@@ -1,5 +1,5 @@
 (ns flatland.telemetry.server
-  (:use [ring.middleware params keyword-params format-params])
+  (:use [ring.middleware params keyword-params format-params format-response])
   (:require
    [clojure.string :as str]
    [clojure.java.io :as io]
@@ -13,7 +13,7 @@
    (aleph [formats :as formats]
           [http :as http]
           [tcp :as tcp])
-   [compojure.core :refer [routes GET POST context]]
+   [compojure.core :refer [routes GET POST ANY context]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
    [flatland.telemetry.graphite :as graphite]
@@ -175,9 +175,9 @@
                           (add-listener config (keyword type) name query))
                         (POST "/forget" [type name]
                           (remove-listener config (keyword type) name)))
-        readers (routes (GET "/inspect" [query]
+        readers (routes (ANY "/inspect" [query]
                           (inspector config query))
-                        (GET "/listeners" []
+                        (ANY "/listeners" []
                           (get-listeners config)))]
     (-> (routes (wrap-saving-listeners writers config)
                 readers
@@ -185,6 +185,7 @@
         wrap-keyword-params
         wrap-params
         wrap-json-params
+        wrap-json-response
         wrap-404)))
 
 (defn wrap-default
