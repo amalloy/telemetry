@@ -154,14 +154,19 @@
   [config]
   (let [clients (:clients config)]
     (fn [ch {:keys [address] :as client-info}]
-      (let [log-event (let [inc (fnil inc 0)]
+      (let [client-id (gensym)
+            log-event (let [inc (fnil inc 0)]
                         (fn [type]
                           (send clients update-in [address type] inc)))
-            ch* (->> (doto ch (lamina/on-closed #(log-event {:type :drop})))
+            ch* (->> (doto ch (lamina/on-closed (fn []
+                                                  (log-event :drop)
+                                                  (send clients update-in [:channels]
+                                                        dissoc client-id))))
                      (lamina/map* (fn [[probe data]]
                                     [(str/replace probe #"\." ":")
                                      (formats/decode-json data)])))]
-        (log-event {:type :connect})
+        (log-event :connect)
+        (send clients update-in [:channels] assoc client-id ch)
         (-> ch*
             (lamina/receive-all
              (fn [[probe data]]
