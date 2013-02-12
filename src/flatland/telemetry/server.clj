@@ -190,7 +190,6 @@
         wrap-keyword-params
         wrap-params
         wrap-json-params
-        wrap-json-response
         wrap-404)))
 
 (defn wrap-default
