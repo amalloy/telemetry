@@ -149,13 +149,13 @@
            (context (str "/" (name module-name)) []
                     handler))))
 
-(defn parse-json [probe data]
+(defn parse-json [address probe data]
   (try
     (formats/decode-json data)
     (catch Exception e
       (throw (IllegalArgumentException.
-              (format "Probe %s contained invalid data %s"
-                      probe data)
+              (format "Probe %s from %s contained invalid data %s"
+                      probe address data)
               e)))))
 
 (defn tcp-handler
@@ -173,7 +173,7 @@
                                                         dissoc client-id))))
                      (lamina/map* (fn [[probe data]]
                                     [(str/replace probe #"\." ":")
-                                     (parse-json probe data)])))]
+                                     (parse-json address probe data)])))]
         (log-event :connect)
         (send clients update-in [:channels] assoc client-id ch)
         (-> ch*
