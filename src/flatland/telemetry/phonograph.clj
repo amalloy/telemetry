@@ -34,6 +34,18 @@
         duration (config/as-seconds duration)]
     {:density granularity :count (quot duration granularity)}))
 
+
+;; TODO: better caching strategy than "cache files forever".
+;;
+;; In the short term, we want to just close a file as soon as we're done writing to it; this only
+;; requires making phonograph files "reopenable" without having to re-parse the archive headers.
+;;
+;; In the long term it might be nice to keep the most-active files actually open, especially if we
+;; switch to writing at shorter intervals than thirty seconds. I asked about this at
+;; http://stackoverflow.com/q/14842457/625403, and got a good answer that addresses almost all of my
+;; concerns. I think we could address my last concern by also creating a phantom reference to each
+;; handle when we add it to the cache, so that we can clean up the object only once any outstanding
+;; references to it are cleared.
 (defn phonograph-opener [{:keys [base-path db-opts archive-retentions] :as config}]
   (let [base-file (File. base-path)]
     (memoize* (fn [label]
