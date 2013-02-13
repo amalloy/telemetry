@@ -3,8 +3,10 @@
             [flatland.telemetry.graphing :as graphing]
             [flatland.phonograph :as phonograph]
             [lamina.core :as lamina]
-            [clojure.string :as s])
-  (:import java.io.File))
+            [clojure.string :as s]
+            [compojure.core :refer [GET]])
+  (:import java.io.File
+           (java.util Date Calendar)))
 
 (defn memoize*
   "Fills its memoization cache with thunks instead of actual values, so that there is no possibility
@@ -62,7 +64,27 @@
 
 (def default-archive-retentions
   (regex-archiver [[#".*" [{:granularity {:number 30, :unit :seconds}
-                             :duration {:number 90, :unit :days}}]]]))
+                            :duration {:number 90, :unit :days}}]]]))
+
+(defn subtract-day [^Date d]
+  (.getTime (doto (Calendar/getInstance)
+              (.setTime d)
+              (.add Calendar/DATE -1))))
+
+(defn points [open target from until]
+  (let [{:keys [from until density values]}
+        ,,(phonograph/get-range (open target) from until)]
+    {:target target
+     :datapoints (map list
+                      (range from until density)
+                      values)}))
+
+(defn handler [open]
+  (GET "/render" [target from until]
+    (let [now (Date.)]
+      [(points open target
+               (graphing/unix-time (subtract-day now))
+               (graphing/unix-time now))])))
 
 (let [default-config {:db-opts default-db-opts
                       :archive-retentions default-archive-retentions}]
