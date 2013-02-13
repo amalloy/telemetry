@@ -209,18 +209,21 @@
       (or (f x) default))
     (constantly default)))
 
+(defn init-modules [modules default-period]
+  (into {} (for [{:keys [init options]} modules]
+             (let [module (init options)]
+               (when-not (:shutdown module)
+                 (throw (Exception. (format "Module %s must provide a shutdown hook."
+                                            (:name module)))))
+               [(:name module) (update-in module [:period]
+                                          wrap-default default-period)]))))
+
 (defn init
   "Starts the telemetry http and tcp servers, and registers any modules given. Returns a server
   handle which can be terminated via destroy!. The handle is just a map with some useful data, but
   should be considered opaque: tamper at your own risk."
   [{:keys [modules http-port tcp-port period] :or {period 1000} :as config}]
-  (let [modules (into {} (for [{:keys [init options]} modules]
-                           (let [module (init options)]
-                             (when-not (:shutdown module)
-                               (throw (Exception. (format "Module %s must provide a shutdown hook."
-                                                          (:name module)))))
-                             [(:name module) (update-in module [:period]
-                                                        wrap-default period)])))
+  (let [modules (init-modules modules period)
         config (doto (assoc config
                        :listeners (ref {})
                        :clients (agent {})
