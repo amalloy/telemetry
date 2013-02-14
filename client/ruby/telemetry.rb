@@ -3,12 +3,15 @@ require 'socket'
 require 'json'
 
 class Telemetry
-  class NetworkException < StandardError
+  class BaseException < StandardError
     attr_reader :cause
     def initialize(cause)
       @cause = cause
     end
   end
+
+  class NetworkException < BaseException; end;
+  class EncodingException < BaseException; end;
 
   def initialize(host = "localhost", port = 1845)
     @socket = TCPSocket.new(host, port)
@@ -23,8 +26,12 @@ class Telemetry
 
   def log(label, data={}, &block)
     data = block.call if block
-    @socket.puts("#{label.to_s} #{data.to_json}")
+    json = data.to_json
+    json.unpack("U*").pack("U*")
+    @socket.puts("#{label.to_s} #{json}")
   rescue Errno::EPIPE => e
     raise NetworkException.new(e)
+  rescue ArgumentError => e
+    raise EncodingException.new(e)
   end
 end
