@@ -119,6 +119,7 @@
                    (doseq [[path file] @(:cache (meta open))]
                      (phonograph/close @file))
                    (reset! (:cache (meta open)) {}))
+       :handler (handler open)
        :listen (fn listen [ch name]
                  (-> ch
                      (->> (lamina/mapcat* (graphing/sink name)))
