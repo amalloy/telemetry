@@ -21,7 +21,7 @@
                          (assoc cache args
                                 (or (get cache args) thunk))))
                 (get args)
-                (deref))))
+                (force))))
         (with-meta {:cache cache}))))
 
 (defn regex-search [s tests]
