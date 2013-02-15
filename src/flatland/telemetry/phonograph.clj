@@ -95,8 +95,8 @@
   (GET "/render" [target from until]
     (let [now (Date.)]
       [(points open target
-               (graphing/unix-time (subtract-day now))
-               (graphing/unix-time now))])))
+               (or (Long/parseLong from) (graphing/unix-time (subtract-day now)))
+               (or (Long/parseLong until) (graphing/unix-time now)))])))
 
 (let [default-config {:db-opts default-db-opts
                       :archive-retentions default-archive-retentions}]
