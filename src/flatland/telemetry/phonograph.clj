@@ -1,7 +1,9 @@
 (ns flatland.telemetry.phonograph
   (:require [flatland.telemetry.graphite.config :as config]
-            [flatland.telemetry.graphing :as graphing]
+            [flatland.telemetry.graphing :as graphing :refer [unix-time]]
             [flatland.phonograph :as phonograph]
+            [flatland.useful.utils :refer [with-adjustments]]
+            [aleph.formats :as formats]
             [lamina.core :as lamina]
             [clojure.string :as s]
             [compojure.core :refer [GET]])
@@ -87,16 +89,29 @@
   (let [{:keys [from until density values]}
         ,,(phonograph/get-range (open target) from until)]
     {:target target
-     :datapoints (map list
-                      (range from until density)
-                      values)}))
+     :datapoints (filter second (map list
+                                     (range from until density)
+                                     values))}))
+
+(defn absolute-time [t ref]
+  (if (neg? t)
+    (+ ref t)
+    t))
 
 (defn handler [open]
   (GET "/render" [target from until]
-    (let [now (Date.)]
-      [(points open target
-               (or (Long/parseLong from) (graphing/unix-time (subtract-day now)))
-               (or (Long/parseLong until) (graphing/unix-time now)))])))
+    (let [now-date (Date.)
+          unix-now (unix-time now-date)]
+      (with-adjustments #(when (seq %) (Long/parseLong %)) [from until]
+        (let [until (if until
+                      (absolute-time until unix-now)
+                      unix-now)
+              from (if from
+                     (absolute-time from until)
+                     (unix-time (subtract-day now-date)))]
+          {:status 200
+           :headers {"Content-Type" "application/json"}
+           :body (formats/encode-json->string [(points open target from until)])})))))
 
 (let [default-config {:db-opts default-db-opts
                       :archive-retentions default-archive-retentions}]
