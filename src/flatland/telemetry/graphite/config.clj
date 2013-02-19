@@ -1,9 +1,15 @@
 (ns flatland.telemetry.graphite.config)
 
+;; graphite doesn't support weeks, so even though we do we won't include it in the parsing code
 (def unit-abbrevs
   {"s" :seconds, "m" :minutes, "h" :hours, "d" :days, "y" :years})
+
+;; allow keywords to be plural, optionally
 (def unit-multipliers
-  {:seconds 1 :minutes 60 :hours (* 60 60) :days (* 60 60 24) :years (* 60 60 24 365)})
+  (into {} (for [[k v] {:second 1 :minute 60 :hour (* 60 60) :day (* 60 60 24)
+                        :week (* 60 60 24 7) :year (* 60 60 24 365)}
+                 k [k (keyword (str (name k) "s"))]]
+             [k v])))
 (defn as-seconds [time-with-unit]
   (* (:number time-with-unit) (unit-multipliers (:unit time-with-unit))))
 
