@@ -76,9 +76,39 @@
   (fn [label]
     (regex-search label tests)))
 
+(defn time-span [[granularity-num granularity-unit]
+                 [duration-num duration-unit]]
+  {:granularity {:number granularity-num, :unit granularity-unit}
+   :duration {:number duration-num, :unit duration-unit}})
+
+(defmacro every
+  "Accepts an input like (every 30 seconds for a day) or (every minute for 2 weeks) and turns it
+into the time-unit representation that telemetry uses."
+  ([granularity-unit for duration-num duration-unit]
+     `(every 1 ~granularity-unit ~for ~duration-num ~duration-unit))
+  ([granularity-num granularity-unit
+    for
+    duration-num duration-unit]
+     (let [gunit (keyword granularity-unit)
+           dunit (keyword duration-unit)
+           duration-num ('{a 1, an 1} duration-num duration-num)]
+       (if-let [error (cond (not= for 'for) "You must call your separator 'for."
+                            (not (config/unit-multipliers gunit)) (format "Unrecognized unit '%s"
+                                                                          granularity-unit)
+                            (not (config/unit-multipliers dunit)) (format "Unrecognized unit '%s"
+                                                                          duration-unit))]
+
+         (throw (IllegalArgumentException. error))
+         `(time-span [~granularity-num ~gunit] [~duration-num ~dunit])))))
+
 (def default-archive-retentions
-  (regex-archiver [[#".*" [{:granularity {:number 30, :unit :seconds}
-                            :duration {:number 90, :unit :days}}]]]))
+  (regex-archiver [[#".*" [(every 30 seconds for 90 days)]]]))
+
+(comment want to upgrade that to the following, but we can't yet upgrade phonograph files.
+         [(every 30 seconds for a day)
+          (every 15 minutes for 14 days)
+          (every 6 hours for 12 weeks)
+          (every day for 10 years)])
 
 (defn subtract-day [^Date d]
   (.getTime (doto (Calendar/getInstance)
