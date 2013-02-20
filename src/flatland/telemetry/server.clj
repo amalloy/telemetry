@@ -6,8 +6,7 @@
    [swank.swank :as swank]
    (lamina [core :as lamina]
            [connections :as connection]
-           [trace :as trace]
-           [cache :as cache])
+           [trace :as trace])
    [lamina.trace.router.core :as router]
    (gloss [core :as gloss])
    (aleph [formats :as formats]
@@ -42,8 +41,8 @@
   "Subscribe to the given trace descriptor, returning a channel of the resuts. Sets the
    period for all periodic operators before parsing."
   [query period]
-  (cache/subscribe trace/local-trace-router query
-                   :period period))
+  (trace/subscribe trace/local-trace-router query
+                   {:period period}))
 
 ;;; functions that work on the listener list, and return Ring responses
 
