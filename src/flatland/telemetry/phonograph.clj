@@ -5,6 +5,8 @@
             [flatland.useful.utils :refer [with-adjustments]]
             [aleph.formats :as formats]
             [lamina.core :as lamina]
+            [lamina.trace :as trace]
+            lamina.time
             [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:import java.io.File
@@ -115,13 +117,38 @@ into the time-unit representation that telemetry uses."
               (.setTime d)
               (.add Calendar/DATE -1))))
 
-(defn points [open target from until]
+(defn timed-tuple [timestamp value]
+  [timestamp value])
+
+(defn tuple-time [tuple]
+  (nth tuple 0))
+
+(defn tuple-value [tuple]
+  (nth tuple 1))
+
+(defn phonograph-seq [open target from until]
   (let [{:keys [from until density values]}
         ,,(phonograph/get-range (open target) from until)]
-    {:target target
-     :datapoints (filter second (map list
-                                     (range from until density)
-                                     values))}))
+    (filter tuple-value (map timed-tuple
+                             (range from until density)
+                             values))))
+
+(defn points [open targets from until]
+  (let [q (lamina.time/non-realtime-task-queue)
+        router (trace/trace-router
+                {:generator (fn [{:strs [pattern]}]
+                              (apply lamina/closed-channel
+                                     (phonograph-seq open (s/replace pattern ":" ".") from until)))
+                 :task-queue q, :payload tuple-value :timestamp tuple-time})
+        subscriptions (doall (for [target targets]
+                               (lamina/map* (fn [data]
+                                              [data (lamina.time/now q)])
+                                            (trace/subscribe router target {}))))]
+    (lamina.time/advance-until q until)
+    (map (fn [target-name channel]
+           {:target target-name
+            :datapoints (lamina/channel->seq channel)})
+         targets, subscriptions)))
 
 (defn absolute-time [t ref]
   (if (neg? t)
@@ -130,7 +157,10 @@ into the time-unit representation that telemetry uses."
 
 (defn handler [open]
   (GET "/render" [target from until]
-    (let [now-date (Date.)
+    (let [targets (if (coll? target) ; if there's only one target it's a string, but if multiple are
+                    target           ; specified then compojure will make a list of them
+                    [target])
+          now-date (Date.)
           unix-now (unix-time now-date)]
       (with-adjustments #(when (seq %) (Long/parseLong %)) [from until]
         (let [until (if until
@@ -139,9 +169,11 @@ into the time-unit representation that telemetry uses."
               from (if from
                      (absolute-time from until)
                      (unix-time (subtract-day now-date)))]
-          {:status 200
-           :headers {"Content-Type" "application/json"}
-           :body (formats/encode-json->string [(points open target from until)])})))))
+          (if-let [result (points open targets from until)]
+            {:status 200
+             :headers {"Content-Type" "application/json"}
+             :body (formats/encode-json->string result)}
+            {:status 404}))))))
 
 (let [default-config {:db-opts default-db-opts
                       :archive-retentions default-archive-retentions}]
