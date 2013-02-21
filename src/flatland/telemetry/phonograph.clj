@@ -94,7 +94,8 @@ into the time-unit representation that telemetry uses."
      (let [gunit (keyword granularity-unit)
            dunit (keyword duration-unit)
            duration-num ('{a 1, an 1} duration-num duration-num)]
-       (if-let [error (cond (not= for 'for) "You must call your separator 'for."
+       (if-let [error (cond (not= for 'for) (format "You must call your separator 'for, not '%s."
+                                                    (pr-str for))
                             (not (config/unit-multipliers gunit)) (format "Unrecognized unit '%s"
                                                                           granularity-unit)
                             (not (config/unit-multipliers dunit)) (format "Unrecognized unit '%s"
