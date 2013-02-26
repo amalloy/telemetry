@@ -140,7 +140,7 @@
   "Constructs routes for delegating to installed modules.
    A module named foo will be in charge of handling any request under /foo.
 
-   For example, /foo/bar will be sent to the foo module :hander as a request for /bar."
+   For example, /foo/bar will be sent to the foo module's :handler as a request for /bar."
   [{:keys [modules] :as config}]
   (apply routes
          (for [[module-name {:keys [handler]}] modules
