@@ -170,9 +170,10 @@
                                                   (log-event :drop)
                                                   (send clients update-in [:channels]
                                                         dissoc client-id))))
-                     (lamina/map* (fn [[probe data]]
-                                    [(str/replace probe #"\." ":")
-                                     (parse-json address probe data)])))]
+                     (lamina/map* (fn [line]
+                                    (let [[probe data] (str/split line #" " 2)]
+                                      [(str/replace probe #"\." ":")
+                                       (parse-json address probe data)]))))]
         (log-event :connect)
         (send clients update-in [:channels] assoc client-id ch)
         (-> ch*
@@ -229,7 +230,12 @@
                        :modules modules)
                  (restore-listeners))
         tcp (tcp/start-tcp-server (tcp-handler config)
-                                  (merge tcp-options {:port (or tcp-port default-tcp-port)}))
+                                  ; we override the frame with utf-8 because gloss has some bad
+                                  ; error-handling code that breaks in some cases if we let it split
+                                  ; up by space for us. the "published" tcp-options are indeed the
+                                  ; real format we support, we just have to do it by hand for now.
+                                  (merge tcp-options {:port (or tcp-port default-tcp-port)
+                                                      :frame (gloss/string :utf-8)}))
         handler (ring-handler config)
         http (http/start-http-server (http/wrap-ring-handler handler)
                                      {:port (or http-port default-http-port)})]
