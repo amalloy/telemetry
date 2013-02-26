@@ -41,7 +41,7 @@
   (fn [keyed-numbers]
     (let [now (unix-time (Date.))]
       (for [[k v] keyed-numbers]
-        (let [name (rename-fn pattern k)]
+        (let [name (rename-fn pattern (or k "nil"))]
           [name v now])))))
 
 (defn sink
