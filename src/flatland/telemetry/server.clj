@@ -16,7 +16,8 @@
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
    [flatland.telemetry.graphite :as graphite]
-   [flatland.telemetry.phonograph :as phonograph])
+   [flatland.telemetry.phonograph :as phonograph]
+   [flatland.telemetry.cassette :as cassette])
   (:import (java.io StringReader BufferedReader IOException))
   (:use flatland.useful.debug))
 
@@ -268,4 +269,6 @@
                                   :options {:host "localhost" :port 2003
                                             :config-reader read-schema}}
                                  {:init phonograph/init
-                                  :options {:base-path "./storage/phonograph"}}]}))))
+                                  :options {:base-path "./storage/phonograph"}}
+                                 {:init cassette/init
+                                  :options {:base-path "./storage/cassette"}}]}))))
