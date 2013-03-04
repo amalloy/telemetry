@@ -1,4 +1,4 @@
-(ns flatland.telemetry.graphing
+(ns flatland.telemetry.sinks
   (:require [clojure.string :as str])
   (:import java.util.Date))
 

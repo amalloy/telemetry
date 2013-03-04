@@ -181,7 +181,7 @@
             (lamina/receive-all
              (fn [[probe data]]
                (log-event :trace)
-               (trace/trace* probe data))))))))
+               (trace/trace* probe (assoc data :topic probe)))))))))
 
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
