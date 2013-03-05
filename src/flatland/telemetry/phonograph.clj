@@ -93,13 +93,10 @@ into the time-unit representation that telemetry uses."
          `(time-span [~granularity-num ~gunit] [~duration-num ~dunit])))))
 
 (def default-archive-retentions
-  (regex-archiver [[#".*" [(every 30 seconds for 90 days)]]]))
-
-(comment want to upgrade that to the following, but we can't yet upgrade phonograph files.
-         [(every 30 seconds for a day)
-          (every 15 minutes for 14 days)
-          (every 6 hours for 12 weeks)
-          (every day for 10 years)])
+  (regex-archiver [[#".*" [(every 30 seconds for a day)
+                           (every 15 minutes for 14 days)
+                           (every 6 hours for 12 weeks)
+                           (every day for 10 years)]]]))
 
 (defn subtract-day [^Date d]
   (.getTime (doto (Calendar/getInstance)
