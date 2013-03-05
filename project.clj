@@ -1,4 +1,4 @@
-(defproject org.flatland/telemetry "0.1.3-alpha1"
+(defproject org.flatland/telemetry "0.1.3-alpha2"
   :description "data from a distance"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
