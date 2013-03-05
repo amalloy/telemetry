@@ -8,7 +8,7 @@
             [gloss.core :refer [string compile-frame]]))
 
 (defn init [{:keys [base-path file-size]}]
-  (let [nexus (lamina/channel :permanent? true :grounded? true)
+  (let [nexus (lamina/channel* :permanent? true :grounded? true)
         open (let [codec (compile-frame (string :utf-8)
                                         encode-json->string
                                         decode-json)]
