@@ -11,3 +11,4 @@ pom.xml
 /config.clj
 /log.clj
 *~
+storage/
