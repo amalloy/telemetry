@@ -23,7 +23,6 @@
      :shutdown (fn shutdown []
                  ;; the only way to close these files is to let them get GCed
                  (reset! (:cache (meta open)) nil))
-     :period (constantly 10000)
      :listen (fn [ch name]
                (-> ch
                    (->> (lamina/mapcat* (sinks/sink name)))
