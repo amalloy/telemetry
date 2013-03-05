@@ -3,15 +3,15 @@ require 'socket'
 require 'json'
 
 class Telemetry
-  class BaseException < StandardError
+  class Exception < StandardError
     attr_reader :cause
     def initialize(cause)
       @cause = cause
     end
   end
 
-  class NetworkException < BaseException; end;
-  class EncodingException < BaseException; end;
+  class NetworkException  < Exception; end;
+  class EncodingException < Exception; end;
 
   def initialize(host = "localhost", port = 1845)
     @socket = TCPSocket.new(host, port)
