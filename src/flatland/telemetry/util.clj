@@ -5,6 +5,8 @@
   of calling f multiple times concurrently. Also exposes its memozation cache in the returned
   function's metadata, to permit outside fiddling."
   [f]
+  (when-not (ifn? f)
+    (throw (IllegalArgumentException. (format "Attempting to memoize non-function %s" (pr-str f)))))
   (let [cache (atom {})]
     (-> (fn [& args]
           (let [thunk (delay (apply f args))]

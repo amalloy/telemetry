@@ -46,10 +46,13 @@
                                         base-file
                                         path-segments)]
                   (.mkdirs (.getParentFile full-path))
-                  (or (apply phonograph/create full-path
-                             (db-opts label)
-                             (map retention->archive (archive-retentions label)))
-                      (phonograph/open full-path)))))))
+                  (try
+                    (or (apply phonograph/create full-path
+                               (db-opts label)
+                               (map retention->archive (archive-retentions label)))
+                        (phonograph/open full-path))
+                    (catch Exception e
+                      (throw (java.io.IOException. (format "Error opening %s" full-path) e)))))))))
 
 (let [storage-modes [[#"\.(count|rate)$" :sum]
                      [#"\.max$" :max]
