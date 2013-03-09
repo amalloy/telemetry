@@ -15,10 +15,12 @@
    [compojure.core :refer [routes GET POST ANY context]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
+   [flatland.telemetry.util :refer [unix-time]]
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
    [flatland.telemetry.cassette :as cassette])
-  (:import (java.io StringReader BufferedReader IOException))
+  (:import (java.io StringReader BufferedReader IOException)
+           (java.util Date))
   (:use flatland.useful.debug))
 
 (def default-tcp-port
@@ -76,7 +78,10 @@
     (if listen
       (do
         (remove-listener config type label)
-        (let [channel (doto (subscribe query (period label))
+        (let [channel (doto (->> (subscribe query (period label))
+                                 (lamina/map* (fn [obj]
+                                                {:timestamp (unix-time (Date.))
+                                                 :value obj})))
                         (listen label))
               unsubscribe #(lamina/close channel)]
           (dosync

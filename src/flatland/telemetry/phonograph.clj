@@ -1,7 +1,7 @@
 (ns flatland.telemetry.phonograph
   (:require [flatland.telemetry.graphite.config :as config]
-            [flatland.telemetry.sinks :as sinks :refer [unix-time]]
-            [flatland.telemetry.util :refer [memoize*]]
+            [flatland.telemetry.sinks :as sinks]
+            [flatland.telemetry.util :refer [memoize* unix-time]]
             [flatland.phonograph :as phonograph]
             [flatland.useful.utils :refer [with-adjustments]]
             [aleph.formats :as formats]

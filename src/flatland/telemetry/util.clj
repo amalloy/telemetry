@@ -1,4 +1,10 @@
-(ns flatland.telemetry.util)
+(ns flatland.telemetry.util
+  (:import java.util.Date))
+
+(defn unix-time
+  "Number of seconds since the unix epoch, as by Linux's time() system call."
+  [^Date date]
+  (-> date (.getTime) (quot 1000)))
 
 (defmacro delay*
   "Like clojure.core/delay, with a couple changes. First, sadly, it doesn't respond to (force),
