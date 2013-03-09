@@ -74,9 +74,9 @@
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
   [config type label query]
-  (let [{:keys [listen period]} (get-in config [:modules type])]
+  (let [{:keys [listen period subscription-filter]} (get-in config [:modules type])]
     (if listen
-      (do
+      (let [{:keys [label query]} (subscription-filter (keyed [label query]))]
         (remove-listener config type label)
         (let [channel (doto (->> (subscribe query (period label))
                                  (lamina/map* (fn [obj]
@@ -221,8 +221,9 @@
                (when-not (:shutdown module)
                  (throw (Exception. (format "Module %s must provide a shutdown hook."
                                             (:name module)))))
-               [(:name module) (update-in module [:period]
-                                          wrap-default default-period)]))))
+               [(:name module) (-> module
+                                   (update-in [:period] wrap-default default-period)
+                                   (update-in [:subscription-filter] #(or % identity)))]))))
 
 (defn init
   "Starts the telemetry http and tcp servers, and registers any modules given. Returns a server
