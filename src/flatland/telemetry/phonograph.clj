@@ -4,9 +4,11 @@
             [flatland.telemetry.util :refer [memoize* unix-time]]
             [flatland.phonograph :as phonograph]
             [flatland.useful.utils :refer [with-adjustments]]
+            [flatland.useful.map :refer [keyed]]
             [aleph.formats :as formats]
             [lamina.core :as lamina]
             [lamina.trace :as trace]
+            [lamina.trace.router :as router]
             lamina.time
             [clojure.string :as s]
             [compojure.core :refer [GET]])
@@ -120,21 +122,13 @@ into the time-unit representation that telemetry uses."
                              values))))
 
 (defn points [open targets from until]
-  (let [q (lamina.time/non-realtime-task-queue)
-        router (trace/trace-router
-                {:generator (fn [{:strs [pattern]}]
-                              (apply lamina/closed-channel
-                                     (phonograph-seq open (s/replace pattern ":" ".") from until)))
-                 :task-queue q, :payload tuple-value :timestamp tuple-time})
-        subscriptions (doall (for [target targets]
-                               (lamina/map* (fn [data]
-                                              [data (lamina.time/now q)])
-                                            (trace/subscribe router target {}))))]
-    (lamina.time/advance-until q until)
-    (map (fn [target-name channel]
-           {:target target-name
-            :datapoints (lamina/channel->seq channel)})
-         targets, subscriptions)))
+  (for [[target datapoints]
+        ,,(router/query-seqs (zipmap targets (repeat nil))
+                             {:payload tuple-value :timestamp tuple-time
+                              :seq-generator (fn [pattern]
+                                               (phonograph-seq open (s/replace pattern ":" ".")
+                                                               from until))})]
+    (keyed [target datapoints])))
 
 (defn absolute-time [t ref]
   (if (neg? t)
