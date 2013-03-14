@@ -163,6 +163,10 @@
                       probe address data)
               e)))))
 
+(defn process-event [topic data]
+  (assert (string? topic))
+  (trace/trace* topic (assoc data :topic topic)))
+
 (defn tcp-handler
   "Forwards each message it receives into the trace router."
   [config]
@@ -186,7 +190,7 @@
             (lamina/receive-all
              (fn [[probe data]]
                (log-event :trace)
-               (trace/trace* probe (assoc data :topic probe)))))))))
+               (process-event probe data))))))))
 
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
