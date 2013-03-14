@@ -55,8 +55,8 @@
   [config query]
   {:status 200
    :headers {"content-type" "application/json"}
-   :body (->> (subscribe (? (formats/url-decode query)) (:period config))
-              (lamina/map* #(formats/encode-json->string (? %)))
+   :body (->> (subscribe (formats/url-decode query) (:period config))
+              (lamina/map* formats/encode-json->string)
               (lamina/map* #(str % "\n")))})
 
 (defn remove-listener

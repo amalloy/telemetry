@@ -7,9 +7,7 @@
             [flatland.useful.map :refer [keyed]]
             [aleph.formats :as formats]
             [lamina.core :as lamina]
-            [lamina.trace :as trace]
             [lamina.trace.router :as router]
-            lamina.time
             [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:import java.io.File
