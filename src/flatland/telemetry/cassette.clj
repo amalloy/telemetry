@@ -2,9 +2,11 @@
   "Module for logging data to cassette backups."
   (:require [lamina.core :as lamina]
             [aleph.formats :refer [encode-json->string decode-json]]
-            [flatland.cassette :refer [create-or-open append-message!]]
+            [flatland.cassette :as cassette :refer [create-or-open append-message!]]
             [flatland.telemetry.sinks :as sinks]
             [flatland.telemetry.util :refer [memoize*]]
+            [flatland.useful.seq :as seq]
+            [me.raynes.fs :as fs]
             [clojure.string :as s]
             [gloss.core :refer [string compile-frame]]))
 
@@ -25,10 +27,22 @@
                           encode-json->string
                           decode-json))
 
+(defn replay-generator [{:keys [base-path codec] :or {codec codec}}]
+  (let [base-file (fs/file base-path)]
+    (fn [{:keys [pattern start-time]}]
+      (let [streams (for [file (fs/glob base-file pattern)]
+                      (cassette/messages-since (cassette/open file codec)
+                                               #(>= (:time %) start-time)))
+            timeline (apply seq/merge-sorted #(< (:time %1) (:time %2))
+                            streams)]
+        (for [{:keys [time messages]} timeline
+              message messages]
+          [time message])))))
+
 (defn init [{:keys [base-path file-size]}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
         open (memoize* (fn [name]
-                         (create-or-open base-path name codec file-size)))]
+                         (create-or-open (fs/file base-path name) codec file-size)))]
     (lamina/receive-all nexus
                         (fn [[label value time]]
                           (when (seq value)
