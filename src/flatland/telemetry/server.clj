@@ -7,7 +7,7 @@
    (lamina [core :as lamina]
            [connections :as connection]
            [trace :as trace])
-   [lamina.trace.router.core :as router]
+   [lamina.trace.router :as router]
    (gloss [core :as gloss])
    (aleph [formats :as formats]
           [http :as http]
@@ -70,24 +70,59 @@
            :body (formats/encode-json->string {:query query})})
       {:status 404})))
 
+(defn replay [config query period start-time]
+  (let [replayer (some :replay (vals (:modules config)))
+        data-seq (-> (router/query-seqs
+                      {query nil}
+                      {:timestamp first :payload second :period period
+                       :seq-generator (fn [pattern]
+                                        (replayer {:pattern pattern :start-time start-time
+                                                   :period period}))})
+                     (get query))]
+    data-seq))
+
+(defn stitch-replay [live-channel old-seq]
+  (let [[old-channel combined] (repeatedly lamina/channel)
+        latest-date (atom 0)]
+    (lamina/receive-all old-channel (fn [{:keys [timestamp]}]
+                                      (swap! latest-date max timestamp)))
+    (lamina/siphon old-channel combined)
+    (lamina/on-drained old-channel
+                       (fn []
+                         (let [switchover-time @latest-date]
+                           (lamina/siphon (lamina/drop-while* (fn [{:keys [timestamp]}]
+                                                                (<= timestamp switchover-time))
+                                                              live-channel)
+                                          combined))))
+    (lamina/join (lamina/lazy-seq->channel old-seq) old-channel)
+    combined))
+
+(defn maybe-replay [config live-channel query period replay-since]
+  (if-not replay-since
+    live-channel
+    (-> live-channel
+        (stitch-replay (replay config query period replay-since)))))
+
 (defn add-listener
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
-  [config type label query]
+  [config type label query replay-since]
   (let [{:keys [listen period subscription-filter]} (get-in config [:modules type])]
     (if listen
       (let [{:keys [label query]} (subscription-filter (keyed [label query]))]
         (remove-listener config type label)
-        (let [channel (doto (->> (subscribe query (period label))
-                                 (lamina/map* (fn [obj]
-                                                {:timestamp (unix-time (Date.))
-                                                 :value obj})))
-                        (listen label))
+        (let [period (period label)
+              live-channel (->> (subscribe query period)
+                                (lamina/map* (fn [obj]
+                                               {:timestamp (unix-time (Date.))
+                                                :value obj})))
+              channel (maybe-replay config live-channel query period replay-since)
               unsubscribe #(lamina/close channel)]
           (dosync
            (alter (:listeners config)
                   assoc-in [type label]
                   (keyed [query channel unsubscribe])))
+          (listen channel label)
           {:status 204})) ;; no content
       {:status 404 :body (format "Unrecognized listener type %s\n" (name (or type "nil")))})))
 
@@ -195,8 +230,10 @@
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
   [config]
-  (let [writers (routes (POST "/listen" [type name query]
-                          (add-listener config (keyword type) name query))
+  (let [writers (routes (POST "/listen" [type name query replay-since]
+                          (add-listener config (keyword type) name query
+                                        (when replay-since
+                                          (Long/parseLong replay-since))))
                         (POST "/forget" [type name]
                           (remove-listener config (keyword type) name)))
         readers (routes (ANY "/inspect" [query]
