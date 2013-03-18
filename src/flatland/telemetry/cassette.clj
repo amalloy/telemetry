@@ -39,7 +39,7 @@
               message messages]
           [time message])))))
 
-(defn init [{:keys [base-path file-size]}]
+(defn init [{:keys [base-path file-size] :as config}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
         open (memoize* (fn [name]
                          (create-or-open (fs/file base-path name) codec file-size)))]
@@ -56,6 +56,7 @@
                               {:label (s/replace label "*" "%")
                                :query (str query ".group-by(topic)")}
                               original))
+     :replay (replay-generator config)
      :shutdown (fn shutdown []
                  ;; the only way to close these files is to let them get GCed
                  (reset! (:cache (meta open)) nil))
