@@ -54,10 +54,10 @@
                     (catch Exception e
                       (throw (java.io.IOException. (format "Error opening %s" full-path) e)))))))))
 
-(let [storage-modes [[#"\.(count|rate)$" :sum]
+(let [storage-modes [[#"\.(mean|avg|average)$" :average]
                      [#"\.max$" :max]
                      [#"\.min$" :min]
-                     [#".*" :average]]]
+                     [#".*" :sum]]]
   (defn default-db-opts [label]
     {:aggregation (regex-search label storage-modes)}))
 
