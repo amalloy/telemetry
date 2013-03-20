@@ -155,7 +155,7 @@
                              (read-string (slurp (:config-path config)))
                              (catch Exception e nil))
           [name query] listeners]
-    (add-listener config type name query)))
+    (add-listener config type name query nil)))
 
 (defn wrap-saving-listeners
   "Wraps a ring handler such that, if the handler succeeds, the current listener set is saved before
