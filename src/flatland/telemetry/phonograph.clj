@@ -1,32 +1,17 @@
 (ns flatland.telemetry.phonograph
   (:require [flatland.telemetry.graphite.config :as config]
-            [flatland.telemetry.graphing :as graphing :refer [unix-time]]
+            [flatland.telemetry.sinks :as sinks]
+            [flatland.telemetry.util :refer [memoize* unix-time]]
             [flatland.phonograph :as phonograph]
             [flatland.useful.utils :refer [with-adjustments]]
+            [flatland.useful.map :refer [keyed]]
             [aleph.formats :as formats]
             [lamina.core :as lamina]
-            [lamina.trace :as trace]
-            lamina.time
+            [lamina.trace.router :as router]
             [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:import java.io.File
            (java.util Date Calendar)))
-
-(defn memoize*
-  "Fills its memoization cache with thunks instead of actual values, so that there is no possibility
-  of calling f multiple times concurrently. Also exposes its memozation cache in the returned
-  function's metadata, to permit outside fiddling."
-  [f]
-  (let [cache (atom {})]
-    (-> (fn [& args]
-          (let [thunk (delay (apply f args))]
-            (-> cache
-                (swap! (fn [cache]
-                         (assoc cache args
-                                (or (get cache args) thunk))))
-                (get args)
-                (force))))
-        (with-meta {:cache cache}))))
 
 (defn regex-search [s tests]
   (first (for [[pattern value] tests
@@ -61,15 +46,18 @@
                                         base-file
                                         path-segments)]
                   (.mkdirs (.getParentFile full-path))
-                  (or (apply phonograph/create full-path
-                             (db-opts label)
-                             (map retention->archive (archive-retentions label)))
-                      (phonograph/open full-path)))))))
+                  (try
+                    (or (apply phonograph/create full-path
+                               (db-opts label)
+                               (map retention->archive (archive-retentions label)))
+                        (phonograph/open full-path))
+                    (catch Exception e
+                      (throw (java.io.IOException. (format "Error opening %s" full-path) e)))))))))
 
-(let [storage-modes [[#"\.(count|rate)$" :sum]
+(let [storage-modes [[#"\.(mean|avg|average)$" :average]
                      [#"\.max$" :max]
                      [#"\.min$" :min]
-                     [#".*" :average]]]
+                     [#".*" :sum]]]
   (defn default-db-opts [label]
     {:aggregation (regex-search label storage-modes)}))
 
@@ -105,13 +93,10 @@ into the time-unit representation that telemetry uses."
          `(time-span [~granularity-num ~gunit] [~duration-num ~dunit])))))
 
 (def default-archive-retentions
-  (regex-archiver [[#".*" [(every 30 seconds for 90 days)]]]))
-
-(comment want to upgrade that to the following, but we can't yet upgrade phonograph files.
-         [(every 30 seconds for a day)
-          (every 15 minutes for 14 days)
-          (every 6 hours for 12 weeks)
-          (every day for 10 years)])
+  (regex-archiver [[#".*" [(every 30 seconds for a day)
+                           (every 15 minutes for 14 days)
+                           (every 6 hours for 12 weeks)
+                           (every day for 10 years)]]]))
 
 (defn subtract-day [^Date d]
   (.getTime (doto (Calendar/getInstance)
@@ -135,21 +120,13 @@ into the time-unit representation that telemetry uses."
                              values))))
 
 (defn points [open targets from until]
-  (let [q (lamina.time/non-realtime-task-queue)
-        router (trace/trace-router
-                {:generator (fn [{:strs [pattern]}]
-                              (apply lamina/closed-channel
-                                     (phonograph-seq open (s/replace pattern ":" ".") from until)))
-                 :task-queue q, :payload tuple-value :timestamp tuple-time})
-        subscriptions (doall (for [target targets]
-                               (lamina/map* (fn [data]
-                                              [data (lamina.time/now q)])
-                                            (trace/subscribe router target {}))))]
-    (lamina.time/advance-until q until)
-    (map (fn [target-name channel]
-           {:target target-name
-            :datapoints (lamina/channel->seq channel)})
-         targets, subscriptions)))
+  (for [[target datapoints]
+        ,,(router/query-seqs (zipmap targets (repeat nil))
+                             {:payload tuple-value :timestamp tuple-time
+                              :seq-generator (fn [pattern]
+                                               (phonograph-seq open (s/replace pattern ":" ".")
+                                                               from until))})]
+    (keyed [target datapoints])))
 
 (defn absolute-time [t ref]
   (if (neg? t)
@@ -200,7 +177,7 @@ into the time-unit representation that telemetry uses."
        :handler (handler open)
        :listen (fn listen [ch name]
                  (-> ch
-                     (->> (lamina/mapcat* (graphing/sink name)))
+                     (->> (lamina/mapcat* (sinks/sink name)))
                      (lamina/siphon nexus)))
        :period (fn [label]
                  (when-let [granularity (:granularity (first ((:archive-retentions config) label)))]

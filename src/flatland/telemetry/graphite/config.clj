@@ -23,7 +23,7 @@
    :duration (parse-time duration)})
 
 (defn parse-line [key-name s]
-  (second (->> s (re-find (re-pattern (str "\\s*" key-name "\\s*=\\s*(.*)"))))))
+  (second (->> s (re-find (re-pattern (str #"\s*" key-name #"\s*=\s*(.*)"))))))
 
 (defn parse-rule [[pattern-definition retentions]]
   {:pattern (re-pattern (parse-line "pattern" pattern-definition))

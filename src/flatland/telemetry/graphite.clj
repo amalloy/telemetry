@@ -3,7 +3,7 @@
   (:require [lamina.core :as lamina]
             [aleph.tcp :as tcp]
             [gloss.core :as gloss]
-            [flatland.telemetry.graphing :as graphing]
+            [flatland.telemetry.sinks :as sinks]
             [lamina.connections :as connection]
             [flatland.telemetry.graphite.config :as config]
             [compojure.core :refer [GET]])
@@ -59,5 +59,5 @@
      :period (granularity-decider config-reader)
      :listen (fn listen [ch name]
                (-> ch
-                   (->> (lamina/mapcat* (graphing/sink name)))
+                   (->> (lamina/mapcat* (sinks/sink name)))
                    (lamina/siphon nexus)))}))

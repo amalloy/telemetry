@@ -1,11 +1,6 @@
-(ns flatland.telemetry.graphing
+(ns flatland.telemetry.sinks
   (:require [clojure.string :as str])
   (:import java.util.Date))
-
-(defn unix-time
-  "Number of seconds since the unix epoch, as by Linux's time() system call."
-  [^Date date]
-  (-> date (.getTime) (quot 1000)))
 
 ;;; functions for interpolating values into patterns
 
@@ -30,19 +25,17 @@
 (defn timed-sink
   "Returns a function which emits each datum decorated with the given label and the current time."
   [name]
-  (fn [data]
-    (let [now (unix-time (Date.))]
-      [[name data now]])))
+  (fn [{:keys [timestamp value]}]
+    [[name value timestamp]]))
 
 (defn sink-by-name
   "Returns a function which expects to receive a map of labels to values. Each label has its
-   value(s) interpolated into the pattern, and a list of [name label time] tuples is returned."
+   value(s) interpolated into the pattern, and a list of [name value time] tuples is returned."
   [pattern rename-fn]
-  (fn [keyed-numbers]
-    (let [now (unix-time (Date.))]
-      (for [[k v] keyed-numbers]
-        (let [name (rename-fn pattern (or k "nil"))]
-          [name v now])))))
+  (fn [{:keys [timestamp value]}]
+    (for [[k v] value]
+      (let [name (rename-fn pattern (or k "nil"))]
+        [name v timestamp]))))
 
 (defn sink
   "Determines what kind of pattern name is, and creates an appropriate transformer for its channel.
