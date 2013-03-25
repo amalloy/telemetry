@@ -54,6 +54,14 @@
                     (catch Exception e
                       (throw (java.io.IOException. (format "Error opening %s" full-path) e)))))))))
 
+(defn phonograph-channel [config]
+  (let [open (phonograph-opener config)]
+    (memoize* (fn [label]
+                (let [file (open label)]
+                  (doto (lamina/channel)
+                    (lamina/receive-all (fn [[value time]]
+                                          (phonograph/append! file [time value])))))))))
+
 (let [storage-modes [[#"\.(mean|avg|average)$" :average]
                      [#"\.max$" :max]
                      [#"\.min$" :min]
