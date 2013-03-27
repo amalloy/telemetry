@@ -74,7 +74,7 @@
   (let [replayer (some :replay (vals (:modules config)))
         data-seq (-> (router/query-seqs
                       {query nil}
-                      {:timestamp first :payload second :period period
+                      {:timestamp first :payload second :period (/ period 1000)
                        :seq-generator (fn [pattern]
                                         (replayer {:pattern pattern :start-time start-time
                                                    :period period}))})
