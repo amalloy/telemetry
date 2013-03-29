@@ -211,10 +211,13 @@
             log-event (let [inc (fnil inc 0)]
                         (fn [type]
                           (send clients update-in [address type] inc)))
-            ch* (->> (doto ch (lamina/on-closed (fn []
-                                                  (log-event :drop)
-                                                  (send clients update-in [:channels]
-                                                        dissoc client-id))))
+            ch* (->> (doto ch
+                       (lamina/on-closed (fn []
+                                           (log-event :drop)
+                                           (send clients update-in [:channels]
+                                                 dissoc client-id)))
+
+                       (lamina/on-error ch (fn [e] (log-event :error))))
                      (lamina/map* (fn [line]
                                     (let [[probe data] (str/split line #" " 2)]
                                       [(str/replace probe #"\." ":")
