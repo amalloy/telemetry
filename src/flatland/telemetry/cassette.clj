@@ -36,9 +36,7 @@
             timeline (apply seq/merge-sorted #(< (:time %1) (:time %2))
                             streams)]
         (for [{:keys [time messages]} timeline
-              message (if (map? messages) ;; for a while we wrote misformatted data
-                        (val (first messages))
-                        messages)]
+              message messages]
           [time message])))))
 
 (defn init [{:keys [base-path file-size] :as config}]
