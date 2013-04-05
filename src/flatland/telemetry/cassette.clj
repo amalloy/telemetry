@@ -37,7 +37,7 @@
                             (pmap seq streams))]
         (for [{:keys [time messages]} timeline
               message messages]
-          [time message])))))
+          message)))))
 
 (defn init [{:keys [base-path file-size] :as config}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
