@@ -34,7 +34,7 @@
                       (cassette/messages-since (cassette/open file codec)
                                                #(>= (:time %) start-time)))
             timeline (apply seq/merge-sorted #(< (:time %1) (:time %2))
-                            streams)]
+                            (pmap seq streams))]
         (for [{:keys [time messages]} timeline
               message messages]
           [time message])))))
