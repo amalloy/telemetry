@@ -15,7 +15,7 @@
    [compojure.core :refer [routes GET POST ANY context]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
-   [flatland.telemetry.util :refer [unix-time]]
+   [flatland.telemetry.util :refer [unix-time from-unix-time]]
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
    [flatland.telemetry.cassette :as cassette])
@@ -80,11 +80,18 @@
                      (get query))]
     data-seq))
 
-(defn stitch-replay [live-channel old-seq]
+(defn stitch-replay [live-channel old-seq response-channel]
   (let [[old-channel combined] (repeatedly lamina/channel)
-        latest-date (atom 0)]
+        latest-date (atom 0)
+        message-count (atom 0)]
     (lamina/receive-all old-channel (fn [{:keys [timestamp]}]
+                                      (swap! message-count inc)
                                       (swap! latest-date max timestamp)))
+    (-> old-channel
+        (->> (lamina/sample-every {:period 5000})
+             (lamina/map* (fn [{:keys [timestamp]}]
+                            (str @message-count " " (from-unix-time timestamp) "\n"))))
+        (lamina/join response-channel))
     (lamina/siphon old-channel combined)
     (lamina/on-drained old-channel
                        (fn []
@@ -96,11 +103,13 @@
     (lamina/join (lamina/lazy-seq->channel old-seq) old-channel)
     combined))
 
-(defn maybe-replay [config live-channel query period replay-since]
+(defn maybe-replay [config live-channel query period replay-since response-channel]
   (if-not replay-since
-    live-channel
+    (do
+      (lamina/enqueue-and-close response-channel "OK\n")
+      live-channel)
     (-> live-channel
-        (stitch-replay (replay config query period replay-since)))))
+        (stitch-replay (replay config query period replay-since) response-channel))))
 
 (defn add-listener
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
@@ -108,21 +117,23 @@
   [config type label query replay-since]
   (let [{:keys [listen period subscription-filter]} (get-in config [:modules type])]
     (if listen
-      (let [{:keys [label query]} (subscription-filter (keyed [label query]))]
+      (let [{:keys [label query]} (subscription-filter (keyed [label query]))
+            response-channel (lamina/channel)]
         (remove-listener config type label)
         (let [period (period label)
               live-channel (->> (subscribe query period)
                                 (lamina/map* (fn [obj]
                                                {:timestamp (unix-time (Date.))
                                                 :value obj})))
-              channel (maybe-replay config live-channel query period replay-since)
+              channel (maybe-replay config live-channel query period replay-since response-channel)
               unsubscribe #(lamina/close channel)]
           (dosync
            (alter (:listeners config)
                   assoc-in [type label]
                   (keyed [query channel unsubscribe])))
           (listen channel label)
-          {:status 204})) ;; no content
+          {:status 200
+           :body response-channel}))
       {:status 404 :body (format "Unrecognized listener type %s\n" (name (or type "nil")))})))
 
 (defn readable-listeners
