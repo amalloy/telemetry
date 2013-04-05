@@ -227,7 +227,7 @@
                                            (send clients update-in [:channels]
                                                  dissoc client-id)))
 
-                       (lamina/on-error ch (fn [e] (log-event :error))))
+                       (lamina/on-error (fn [e] (log-event :error))))
                      (lamina/map* (fn [line]
                                     (let [[probe data] (str/split line #" " 2)]
                                       [(str/replace probe #"\." ":")
