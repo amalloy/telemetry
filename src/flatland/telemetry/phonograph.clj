@@ -35,16 +35,16 @@
 ;; concerns. I think we could address my last concern by also creating a phantom reference to each
 ;; handle when we add it to the cache, so that we can clean up the object only once any outstanding
 ;; references to it are cleared.
-(defn phonograph-opener [{:keys [base-path db-opts archive-retentions] :as config}]
+(defn phonograph-opener [{:keys [^String base-path db-opts archive-retentions] :as config}]
   (let [base-file (File. base-path)]
     (memoize* (fn [label]
                 (let [path-segments (vec (s/split label #"\."))
                       path-segments (conj (pop path-segments)
                                           (str (peek path-segments) ".pgr"))
 
-                      full-path (reduce #(File. %1 %2)
-                                        base-file
-                                        path-segments)]
+                      ^File full-path (reduce #(File. ^File %1 ^String %2)
+                                              base-file
+                                              path-segments)]
                   (.mkdirs (.getParentFile full-path))
                   (try
                     (or (apply phonograph/create full-path

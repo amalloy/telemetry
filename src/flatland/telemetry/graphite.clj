@@ -23,7 +23,7 @@
   [config-reader]
   (when config-reader
     (fn [label]
-      (with-open [reader (config-reader)]
+      (with-open [^java.io.Closeable reader (config-reader)]
         (let [lines (line-seq reader)
               rules (config/parse-carbon-config lines)]
           (first (for [{:keys [pattern retentions]} rules

@@ -7,7 +7,7 @@
   (-> date (.getTime) (quot 1000)))
 
 (defn from-unix-time [time]
-  (Date. (* time 1000)))
+  (Date. (long (* time 1000))))
 
 (defmacro delay*
   "Like clojure.core/delay, with a couple changes. First, sadly, it doesn't respond to (force),
