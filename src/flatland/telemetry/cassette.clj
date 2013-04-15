@@ -31,7 +31,7 @@
   (let [base-file (fs/file base-path)]
     (fn [{:keys [pattern start-time]}]
       (let [streams (for [file (fs/glob base-file pattern)]
-                      (cassette/messages-since (cassette/open file codec)
+                      (cassette/messages-since (cassette/open file codec false)
                                                #(>= (% "time") start-time)))
             timeline (apply seq/merge-sorted #(< (%1 "time") (%2 "time"))
                             (pmap seq streams))]
