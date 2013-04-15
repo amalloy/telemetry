@@ -25,19 +25,21 @@
 
 (def codec (compile-frame (string :utf-8)
                           encode-json->string
-                          decode-json))
+                          #(decode-json % false)))
 
 (defn replay-generator [{:keys [base-path codec] :or {codec codec}}]
   (let [base-file (fs/file base-path)]
     (fn [{:keys [pattern start-time]}]
       (let [streams (for [file (fs/glob base-file pattern)]
                       (cassette/messages-since (cassette/open file codec)
-                                               #(>= (:time %) start-time)))
-            timeline (apply seq/merge-sorted #(< (:time %1) (:time %2))
+                                               #(>= (% "time") start-time)))
+            timeline (apply seq/merge-sorted #(< (%1 "time") (%2 "time"))
                             (pmap seq streams))]
-        (for [{:keys [time messages]} timeline
+        (for [{:strs [time messages]} timeline
               message messages]
-          message)))))
+          [time (-> message
+                    (dissoc "timestamp")
+                    (assoc :timestamp (get message "timestamp")))])))))
 
 (defn init [{:keys [base-path file-size] :as config}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
