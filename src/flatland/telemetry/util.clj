@@ -1,5 +1,9 @@
 (ns flatland.telemetry.util
-  (:import java.util.Date))
+  (:require [lamina.time :as t]
+            [lamina.core :as lamina :refer [channel enqueue receive-all enqueue-and-close]]
+            [flatland.useful.utils :refer [returning]])
+  (:import java.util.Date)
+  (:use flatland.useful.debug))
 
 (defn unix-time
   "Number of seconds since the unix epoch, as by Linux's time() system call."
@@ -43,3 +47,34 @@
                          (assoc cache args thunk)))))
             (deref (get @cache args))))
         (with-meta {:cache cache}))))
+
+
+(defn within-window [{:keys [id action trigger window q]
+                      :or {id :id, action :action, window (t/hours 1) q (t/task-queue)}}]
+
+  (fn [ch]
+    (let [result (channel)
+          log (ref {})
+          conj (fnil conj [])
+          report (fn [this-id actions]
+                   (enqueue result {id this-id, :actions actions}))]
+      (receive-all ch
+                   (fn [x]
+                     (let [[this-id this-action] (map x [id action])
+                           is-new? (dosync
+                                    (let [present? (contains? @log this-id)
+                                          trigger? (= this-action trigger)]
+                                      (when (or present? trigger?)
+                                        (alter log update-in [this-id] conj this-action))
+                                      (and trigger?
+                                           (not present?))))]
+                       (when is-new?
+                         (t/invoke-in q window
+                                      (fn []
+                                        (let [items (dosync (returning (get @log this-id)
+                                                              (alter log dissoc this-id)))]
+                                          (report this-id items))))))))
+      (lamina/on-drained ch (fn []
+                              (doseq [[k v] (dosync (returning @log (ref-set log {})))]
+                                (report k v))))
+      result)))
