@@ -1,6 +1,9 @@
 (ns flatland.telemetry.util
   (:require [lamina.time :as t]
             [lamina.core :as lamina :refer [channel enqueue receive-all enqueue-and-close]]
+            [lamina.core.operators :as op]
+            [lamina.query.operators :as q]
+            [lamina.query.core :refer [def-query-operator]]
             [flatland.useful.utils :refer [returning]])
   (:import java.util.Date)
   (:use flatland.useful.debug))
@@ -48,33 +51,45 @@
             (deref (get @cache args))))
         (with-meta {:cache cache}))))
 
+(defn within-window-op [{:keys [id action trigger window q period]
+                         :or {id :id, action :action,
+                              window (t/hours 1) q (t/task-queue) period (t/period)}}
+                        ch]
+  (let [result (channel)
+        watch-list (ref {})
+        expiries (ref (sorted-map))
+        conj (fnil conj [])
+        [get-id get-action] (map q/getter [id action])
+        trigger (name trigger)
+        report (fn [this-id actions]
+                 (enqueue result {id this-id, :actions actions}))]
+    (lamina/concat*
+     (op/bridge-accumulate ch result "within-window"
+       {:accumulator (fn [x]
+                       (let [[this-id this-action] (map #(% x) [get-id get-action])]
+                         (dosync
+                          (let [present? (contains? @watch-list this-id)
+                                trigger? (= trigger (name this-action))]
+                            (when (or present? trigger?)
+                              (alter watch-list update-in [this-id]
+                                     conj this-action))
+                            (when (and trigger? (not present?))
+                              (alter expiries update-in [(+ (t/now q) window)]
+                                     conj this-id))))))
+        :emitter (fn []
+                   (dosync
+                    (let [watches @watch-list
+                          expired (subseq @expiries <= (t/now q))
+                          ids (mapcat val expired)]
+                      (alter expiries #(apply dissoc % (map key expired)))
+                      (alter watch-list #(apply dissoc % ids))
+                      (for [id ids]
+                        {:id id, :actions (get watches id)}))))
+        :period period
+        :task-queue q}))))
 
-(defn within-window [{:keys [id action trigger window q]
-                      :or {id :id, action :action, window (t/hours 1) q (t/task-queue)}}]
-
-  (fn [ch]
-    (let [result (channel)
-          log (ref {})
-          conj (fnil conj [])
-          report (fn [this-id actions]
-                   (enqueue result {id this-id, :actions actions}))]
-      (receive-all ch
-                   (fn [x]
-                     (let [[this-id this-action] (map x [id action])
-                           is-new? (dosync
-                                    (let [present? (contains? @log this-id)
-                                          trigger? (= this-action trigger)]
-                                      (when (or present? trigger?)
-                                        (alter log update-in [this-id] conj this-action))
-                                      (and trigger?
-                                           (not present?))))]
-                       (when is-new?
-                         (t/invoke-in q window
-                                      (fn []
-                                        (let [items (dosync (returning (get @log this-id)
-                                                              (alter log dissoc this-id)))]
-                                          (report this-id items))))))))
-      (lamina/on-drained ch (fn []
-                              (doseq [[k v] (dosync (returning @log (ref-set log {})))]
-                                (report k v))))
-      result)))
+(def-query-operator within-window
+  :periodic? true
+  :distribute? false
+  :transform (fn [{:keys [options]} ch]
+               (within-window-op options ch)))
