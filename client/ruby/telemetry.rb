@@ -24,7 +24,7 @@ class Telemetry
     @socket.close
   end
 
-  def log(label, data={}, &block)
+  def log(label, data = {}, &block)
     data = block.call if block
     json = data.to_json
     json.unpack("U*").pack("U*")
