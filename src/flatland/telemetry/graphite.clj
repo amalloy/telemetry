@@ -44,7 +44,9 @@
                             #(graphite-channel host port)
                             {:on-connected (fn [ch]
                                              (lamina/ground ch) ;; ignore input from server
-                                             (lamina/siphon nexus ch))})]
+                                             (lamina/siphon (lamina/map* #(s/replace % ":" ".")
+                                                                         nexus)
+                                                            ch))})]
     (graphite-connector)
     (fn []
       (connection/close-connection graphite-connector))))

@@ -38,7 +38,7 @@
 (defn phonograph-opener [{:keys [^String base-path db-opts archive-retentions] :as config}]
   (let [base-file (File. base-path)]
     (memoize* (fn [label]
-                (let [path-segments (vec (s/split label #"\."))
+                (let [path-segments (vec (s/split label #":"))
                       path-segments (conj (pop path-segments)
                                           (str (peek path-segments) ".pgr"))
 
@@ -54,9 +54,9 @@
                     (catch Exception e
                       (throw (java.io.IOException. (format "Error opening %s" full-path) e)))))))))
 
-(let [storage-modes [[#"\.(mean|avg|average)$" :average]
-                     [#"\.max$" :max]
-                     [#"\.min$" :min]
+(let [storage-modes [[#":(mean|avg|average)$" :average]
+                     [#":max$" :max]
+                     [#":min$" :min]
                      [#".*" :sum]]]
   (defn default-db-opts [label]
     {:aggregation (regex-search label storage-modes)}))
