@@ -37,9 +37,9 @@
                             (pmap seq streams))]
         (for [{:strs [time messages]} timeline
               message messages]
-          [time (-> message
-                    (dissoc "timestamp")
-                    (assoc :timestamp (get message "timestamp")))])))))
+          (-> message
+              (dissoc "timestamp")
+              (assoc :timestamp time)))))))
 
 (defn init [{:keys [base-path file-size] :as config}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
