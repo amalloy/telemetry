@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<title>Telemetry Admin</title>
+
+<head>
+  <link rel="stylesheet" type="text/css" href="lib/nv.d3.css">
+  <link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.min.css">
+
+  <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/2.10.0/d3.v2.min.js"></script>
+  <script src="lib/nv.d3.js"></script>
+
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
+
+  <script src="src/telegraph.js"></script>
+
+  <script>
+    window.Telegraph = new Telegraph();
+    nv.addGraph(function() {
+      var chart = Telegraph.queryList();
+      var data = Telegraph.getQueries({url: "http://telemetry-001.geni.com:1847/listeners", actions: "foo"});
+
+      d3.select('.queries')
+        .datum(data)
+        .call(chart);
+      return chart;
+    });
+
+    function addQuery() {
+        Telegraph.addQuery(
+            {
+                type: $("#queryType").val(),
+                name: $("#queryName").val(),
+                query: $("#queryQuery").val(),
+                replaySince: $("#queryReplay").val(),
+                url: "http://telemetry-001.geni.com:1847/listen"
+            });
+
+        return false;
+    };
+  </script>
+
+</head>
+
+<body>
+  <div id="add-query">
+    <h3>Add Query</h3>
+    <form onSubmit="return addQuery()">
+      <label for="type">Type</label>
+      <select name="type" id="queryType">
+        <option value="graphite">Graphite</option>
+        <option value="phonograph">Phonograph</option>
+        <option value="cassette">Cassette</option>
+      </select>
+      <label for="name">Name</label>
+      <input type="text" name="name" id="queryName" />
+      <label for="query">Query</label>
+      <input type="text" name="query" id="queryQuery" />
+      <label for="replay">Replay Since</label>
+      <input type="text" name="replay-since" id="queryReplay" />
+      <br /> <!-- styling is a total mystery to me, someone smarter plz fix -->
+      <input id="query-submit" type="submit" name="submit" value="Go!" />
+    </form>
+  </div>
+
+  <div class="chart queries">
+  </div>
+</body>

@@ -1,0 +1,3 @@
+[submodule "resources/telegraph"]
+	path = resources/telegraph
+	url = git@github.com:flatland/telegraph.git
