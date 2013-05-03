@@ -19,7 +19,7 @@ class Telemetry
   def initialize(host = "localhost", port = 1845)
     @socket = TCPSocket.new(host, port)
     @socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_KEEPALIVE, true)
-  rescue Errno::ECONNREFUSED => e
+  rescue Exception => e
     raise NetworkException.new(e)
   end
 
@@ -29,12 +29,17 @@ class Telemetry
 
   def log(label, data = {}, &block)
     data = block.call if block
-    json = data.to_json
-    json.unpack("U*").pack("U*")
-    @socket.puts("#{label.to_s} #{json}")
-  rescue Errno::EPIPE => e
-    raise NetworkException.new(e)
-  rescue ArgumentError => e
-    raise EncodingException.new(e)
+    begin
+      json = data.to_json
+      json.unpack("U*").pack("U*")
+    rescue Exception => e
+      raise EncodingException.new(e)
+    end
+
+    begin
+      @socket.puts("#{label.to_s} #{json}")
+    rescue Exception => e
+      raise NetworkException.new(e)
+    end
   end
 end
