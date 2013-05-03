@@ -6,7 +6,10 @@ class Telemetry
   class Exception < StandardError
     attr_reader :cause
     def initialize(cause)
-      @cause = cause
+      if cause
+        @cause = cause
+        super("#{cause.class.name}: #{cause.message}")
+      end
     end
   end
 
