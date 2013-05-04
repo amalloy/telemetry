@@ -20,26 +20,26 @@
       queriesPath: "listeners",
       addPath: "listen"
     });
-    nv.addGraph(function() {
-      var chart = Telegraph.queryList();
-      var data = Telegraph.getQueries();
 
-      d3.select('.queries')
-        .datum(data)
-        .call(chart);
-      return chart;
-    });
+    Telegraph.listQueries('.queries');
 
     function addQuery() {
-        Telegraph.addQuery({
-          type: $("#queryType").val(),
-          name: $("#queryName").val(),
-          query: $("#queryQuery").val(),
-          replaySince: $("#queryReplay").val(),
-          url: "http://telemetry-001.geni.com:1847/listen"
-        });
+      var submit = $("#query-submit");
+      submit.attr("disabled", true);
 
-        return false;
+      Telegraph.addQuery({
+        type: $("#queryType").val(),
+        name: $("#queryName").val(),
+        query: $("#queryQuery").val(),
+        replaySince: $("#queryReplay").val(),
+        success: function (d) {
+          submit.attr("disabled", false);
+        }
+      });
+
+
+
+      return false;
     };
   </script>
 
