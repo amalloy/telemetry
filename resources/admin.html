@@ -16,9 +16,10 @@
 
   <script>
     window.Telegraph = new Telegraph({
-      server: "telemetry-001.geni.com:1847",
+      server:      "telemetry-001.geni.com:1847",
       queriesPath: "listeners",
-      addPath: "listen"
+      addPath:     "listen",
+      deletePath:  "forget"
     });
 
     Telegraph.listQueries('.queries');
