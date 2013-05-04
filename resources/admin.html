@@ -15,10 +15,14 @@
   <script src="src/telegraph.js"></script>
 
   <script>
-    window.Telegraph = new Telegraph();
+    window.Telegraph = new Telegraph({
+      server: "telemetry-001.geni.com:1847",
+      queriesPath: "listeners",
+      addPath: "listen"
+    });
     nv.addGraph(function() {
       var chart = Telegraph.queryList();
-      var data = Telegraph.getQueries({url: "http://telemetry-001.geni.com:1847/listeners", actions: "foo"});
+      var data = Telegraph.getQueries();
 
       d3.select('.queries')
         .datum(data)
