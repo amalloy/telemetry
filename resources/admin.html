@@ -27,14 +27,13 @@
     });
 
     function addQuery() {
-        Telegraph.addQuery(
-            {
-                type: $("#queryType").val(),
-                name: $("#queryName").val(),
-                query: $("#queryQuery").val(),
-                replaySince: $("#queryReplay").val(),
-                url: "http://telemetry-001.geni.com:1847/listen"
-            });
+        Telegraph.addQuery({
+          type: $("#queryType").val(),
+          name: $("#queryName").val(),
+          query: $("#queryQuery").val(),
+          replaySince: $("#queryReplay").val(),
+          url: "http://telemetry-001.geni.com:1847/listen"
+        });
 
         return false;
     };
