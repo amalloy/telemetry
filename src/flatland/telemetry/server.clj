@@ -6,6 +6,7 @@
    [swank.swank :as swank]
    (lamina [core :as lamina]
            [connections :as connection]
+           [query :as query]
            [trace :as trace])
    [lamina.trace.router :as router]
    (gloss [core :as gloss])
@@ -44,7 +45,7 @@
   "Subscribe to the given trace descriptor, returning a channel of the resuts. Sets the
    period for all periodic operators before parsing."
   [query period]
-  (trace/subscribe trace/local-trace-router query
+  (trace/subscribe trace/local-trace-router (str "&" query)
                    {:period period}))
 
 (defn try-subscribe [query period]
@@ -83,7 +84,7 @@
 
 (defn replay [config query period start-time]
   (let [replayer (some :replay (vals (:modules config)))
-        data-seq (-> (router/query-seqs
+        data-seq (-> (query/query-seqs
                       {query nil}
                       {:timestamp #(* 1000 (:timestamp %)) :payload identity :period period
                        :seq-generator (fn [pattern]

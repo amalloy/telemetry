@@ -7,7 +7,7 @@
             [flatland.useful.map :refer [keyed]]
             [aleph.formats :as formats]
             [lamina.core :as lamina]
-            [lamina.trace.router :as router]
+            [lamina.query :as query]
             [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:import java.io.File
@@ -121,11 +121,11 @@ into the time-unit representation that telemetry uses."
 
 (defn points [open targets from until]
   (for [[target datapoints]
-        ,,(router/query-seqs (zipmap targets (repeat nil))
-                             {:payload tuple-value :timestamp tuple-time
-                              :seq-generator (fn [pattern]
-                                               (phonograph-seq open (s/replace pattern ":" ".")
-                                                               from until))})]
+        ,,(query/query-seqs (zipmap targets (repeat nil))
+                            {:payload tuple-value :timestamp tuple-time
+                             :seq-generator (fn [pattern]
+                                              (phonograph-seq open (s/replace pattern ":" ".")
+                                                              from until))})]
     (keyed [target datapoints])))
 
 (defn absolute-time [t ref]
