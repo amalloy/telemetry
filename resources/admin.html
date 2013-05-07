@@ -34,9 +34,9 @@
         if (testXhr) {
           testXhr.abort();
           testXhr = null;
-          e.target.innerHTML = "Test"
+          $(this).html("Test")
         } else {
-          e.target.innerHTML = "Stop"
+          $(this).html("Stop")
           $("#stagingarea").val("");
           testXhr = Telegraph.testQuery({
             query: $("#query").val(),
@@ -47,14 +47,15 @@
       });
 
       $("#add").click(function(e) {
-        e.target.disabled = true;
+        var $button = $(this);
+        $button.attr("disabled", true);
         Telegraph.addQuery({
           name:  $("#name").val(),
           type:  $("#type").val(),
           query: $("#query").val(),
           replaySince: $("#replay-since").val()
         }, function(d) {
-          e.target.disabled = false;
+          $button.attr("disabled", false);
         });
       });
     });
