@@ -26,7 +26,7 @@
                                            {:host "localhost" :port telemetry-tcp-port}))]
     (try
       (let [url-base (str "http://localhost:" telemetry-http-port)]
-        (http/sync-http-request {:method :post :url (str url-base "/listen")
+        (http/sync-http-request {:method :post :url (str url-base "/add-query")
                                  :body "{\"name\": \"x\", \"query\": \"abc.x\", \"type\": \"graphite\"}"
                                  :headers {"content-type" "application/json"}})
         (lamina/enqueue tcp-client ["abc" "{\"x\":1}"])
