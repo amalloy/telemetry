@@ -20,6 +20,7 @@
       server:      "telemetry-001.geni.com:1847",
       queriesPath: "listeners",
       addPath:     "listen",
+      testPath:    "inspect",
       removePath:  "forget"
     });
 
@@ -28,14 +29,21 @@
     $(document).ready(function() {
       Telegraph.addGroupOpts("#type");
 
+      var testXhr;
       $("#test").click(function(e) {
-        e.target.disabled = true;
-        Telegraph.testQuery({
-          query: $("#query").val(),
-        }, function(d) {
-          $("#stagingarea").val(d);
-          e.target.disabled = false;
-        });
+        if (testXhr) {
+          testXhr.abort();
+          testXhr = null;
+          e.target.innerHTML = "Test"
+        } else {
+          e.target.innerHTML = "Stop"
+          $("#stagingarea").val("");
+          testXhr = Telegraph.testQuery({
+            query: $("#query").val(),
+          }, function(d) {
+            $("#stagingarea").val(d);
+          });
+        }
       });
 
       $("#add").click(function(e) {
