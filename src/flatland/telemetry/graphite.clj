@@ -59,7 +59,7 @@
     {:name :graphite
      :shutdown stop-graphite
      :handler (GET "/render" []
-                   {:status 200 :body "Graphite's sample handler."})
+                {:status 200 :body "Graphite's sample handler."})
      :period (granularity-decider config-reader)
      :listen (fn listen [ch name]
                (-> ch
