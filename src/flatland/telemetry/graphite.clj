@@ -38,6 +38,9 @@
   [host port]
   (tcp/tcp-client {:host host :port port :frame wire-format}))
 
+(defn graphitize-name [[name value time]]
+  [(s/replace name ":" ".") value time])
+
 (defn init-connection
   "Starts a channel that will siphon from the given nexus into a graphite server forever.
    Returns a thunk that will close the connection."
@@ -46,8 +49,7 @@
                             #(graphite-channel host port)
                             {:on-connected (fn [ch]
                                              (lamina/ground ch) ;; ignore input from server
-                                             (lamina/siphon (lamina/map* #(s/replace % ":" ".")
-                                                                         nexus)
+                                             (lamina/siphon (lamina/map* graphitize-name nexus)
                                                             ch))})]
     (graphite-connector)
     (fn []
