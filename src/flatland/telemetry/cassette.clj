@@ -67,6 +67,8 @@
      :shutdown (fn shutdown []
                  ;; the only way to close these files is to let them get GCed
                  (reset! (:cache (meta open)) nil))
+     :targets (fn []
+                (map fs/base-name (.listFiles (fs/file base-path))))
      :listen (fn [ch name]
                (-> ch
                    (->> (lamina/mapcat* (sink name)))

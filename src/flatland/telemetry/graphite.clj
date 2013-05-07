@@ -4,8 +4,10 @@
             [aleph.tcp :as tcp]
             [gloss.core :as gloss]
             [flatland.telemetry.sinks :as sinks]
+            [flatland.telemetry.util :as util]
             [lamina.connections :as connection]
             [flatland.telemetry.graphite.config :as config]
+            [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:use flatland.useful.debug))
 
@@ -51,7 +53,7 @@
     (fn []
       (connection/close-connection graphite-connector))))
 
-(defn init [{:keys [host port config-reader] :or {host "localhost" port 2003}}]
+(defn init [{:keys [host port storage-path config-reader] :or {host "localhost" port 2003}}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
         stop-graphite (init-connection nexus host port)]
     {:name :graphite
@@ -62,4 +64,7 @@
      :listen (fn listen [ch name]
                (-> ch
                    (->> (lamina/mapcat* (sinks/sink name)))
-                   (lamina/siphon nexus)))}))
+                   (lamina/siphon nexus)))
+     :targets (when storage-path
+                (fn []
+                  (util/target-names (util/path->targets storage-path ".wsp"))))}))

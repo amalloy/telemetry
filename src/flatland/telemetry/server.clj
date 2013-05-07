@@ -199,6 +199,17 @@
            (context (str "/" (name module-name)) []
                     handler))))
 
+(defn get-targets [{:keys [modules] :as config}]
+  (into {}
+        (for [[module-name {:keys [targets]}] modules
+              :when targets]
+          [module-name (targets)])))
+
+(defn render-targets [targets]
+  {:status 200 :headers {"content-type" "application/json"}
+   :body (str (formats/encode-json->string targets)
+              "\n")})
+
 (defn parse-json [address probe data]
   (try
     (formats/decode-json data)
@@ -252,7 +263,9 @@
         readers (routes (ANY "/inspect" [query]
                           (inspector config query))
                         (ANY "/listeners" []
-                          (get-listeners config)))]
+                          (get-listeners config))
+                        (ANY "/targets" []
+                          (render-targets (get-targets config))))]
     (-> (routes (wrap-saving-listeners writers config)
                 readers
                 (module-routes config))
@@ -327,7 +340,8 @@
     (def server (init {:period period, :config-path "config.clj"
                        :modules [{:init graphite/init
                                   :options {:host "localhost" :port 2003
-                                            :config-reader read-schema}}
+                                            :config-reader read-schema
+                                            :storage-path "/opt/graphite/storage/whisper"}}
                                  {:init phonograph/init
                                   :options {:base-path "./storage/phonograph"}}
                                  {:init cassette/init

@@ -1,5 +1,9 @@
 (ns flatland.telemetry.util
-  (:import java.util.Date))
+  (:require [me.raynes.fs :as fs]
+            [flatland.useful.seq :refer [lazy-loop]]
+            [clojure.string :as s])
+  (:import java.util.Date)
+  (:use flatland.useful.debug))
 
 (defn unix-time
   "Number of seconds since the unix epoch, as by Linux's time() system call."
@@ -43,3 +47,18 @@
                          (assoc cache args thunk)))))
             (deref (get @cache args))))
         (with-meta {:cache cache}))))
+
+(defn path->targets [root extension]
+  (lazy-loop [dir (fs/file root)]
+    (let [name (fs/base-name dir)]
+      (if (fs/directory? dir)
+        (for [child (.listFiles dir)
+              target (lazy-recur child)]
+          (cons name target))
+        (let [[name ext] (fs/split-ext name)]
+          (when (= ext extension)
+            [[name]]))))))
+
+(defn target-names [targets]
+  (for [target targets]
+    (s/join ":" (rest target))))
