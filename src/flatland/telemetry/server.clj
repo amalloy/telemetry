@@ -47,17 +47,28 @@
   (trace/subscribe trace/local-trace-router query
                    {:period period}))
 
+(defn try-subscribe [query period]
+  (try
+    {:success true, :value (subscribe query period)}
+    (catch Exception e
+      {:success false, :value (.getMessage e)})))
+
 ;;; functions that work on the query list, and return Ring responses
 
 (defn inspector
   "Inspect or debug a probe query without sending it to any queries, by returning an endless,
    streaming HTTP response of its values."
   [config query]
-  {:status 200
-   :headers {"content-type" "application/json"}
-   :body (->> (subscribe (formats/url-decode query) (:period config))
-              (lamina/map* formats/encode-json->string)
-              (lamina/map* #(str % "\n")))})
+  (let [{:keys [success value]} (try-subscribe (formats/url-decode query) (:period config))]
+    (if success
+      {:status 200
+       :headers {"content-type" "application/json"}
+       :body (->> value
+                  (lamina/map* formats/encode-json->string)
+                  (lamina/map* #(str % "\n")))}
+      {:status 400
+       :headers {"content-type" "text/plain"}
+       :body value})))
 
 (defn remove-query
   "Disconnects any channel writing to the given name/pattern."
@@ -118,23 +129,29 @@
   (let [{:keys [listen period subscription-filter]} (get-in config [:modules type])]
     (if listen
       (let [{:keys [label query]} (subscription-filter (keyed [label query]))
-            response-channel (lamina/channel)]
-        (remove-query config type label)
-        (let [period (period label)
-              live-channel (->> (subscribe query period)
-                                (lamina/map* (fn [obj]
-                                               {:timestamp (unix-time (Date.))
-                                                :value obj})))
-              channel (maybe-replay config live-channel query period replay-since response-channel)
-              unsubscribe #(lamina/close channel)]
-          (dosync
-           (alter (:queries config)
-                  assoc-in [type label]
-                  (keyed [query channel unsubscribe])))
-          (listen channel label)
-          {:status 200
-           :body response-channel}))
-      {:status 404 :body (format "Unrecognized query type %s\n" (name (or type "nil")))})))
+            period (period label)
+            {:keys [success value]} (try-subscribe query period)]
+        (if success
+          (do
+            (remove-query config type label)
+            (let [response-channel (lamina/channel)
+                  live-channel (->> value
+                                    (lamina/map* (fn [obj]
+                                                   {:timestamp (unix-time (Date.))
+                                                    :value obj})))
+                  channel (maybe-replay config live-channel query period replay-since response-channel)
+                  unsubscribe #(lamina/close channel)]
+              (dosync
+               (alter (:queries config)
+                      assoc-in [type label]
+                      (keyed [query channel unsubscribe])))
+              (listen channel label)
+              {:status 200
+               :body response-channel}))
+          {:status 400 :content-type "text/plain"
+           :body value}))
+      {:status 404 :content-type "text/plain"
+       :body (format "Unrecognized query type %s\n" (name (or type "nil")))})))
 
 (defn readable-queries
   "A view of the queries map which can be printed and reread."
