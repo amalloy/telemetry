@@ -19,7 +19,7 @@
       server:      "telemetry-001.geni.com:1847",
       queriesPath: "listeners",
       addPath:     "listen",
-      deletePath:  "forget"
+      removePath:  "forget"
     });
 
     Telegraph.listQueries('.queries');
@@ -29,16 +29,14 @@
       submit.attr("disabled", true);
 
       Telegraph.addQuery({
-        type: $("#queryType").val(),
-        name: $("#queryName").val(),
+        name:  $("#queryName").val(),
+        type:  $("#queryType").val(),
         query: $("#queryQuery").val(),
         replaySince: $("#queryReplay").val(),
         success: function (d) {
           submit.attr("disabled", false);
         }
       });
-
-
 
       return false;
     };
