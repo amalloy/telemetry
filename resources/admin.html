@@ -4,6 +4,7 @@
 <head>
   <link rel="stylesheet" type="text/css" href="lib/nv.d3.css">
   <link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.min.css">
+  <link rel="stylesheet" type="text/css" href="admin.css">
 
   <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
   <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/2.10.0/d3.v2.js"></script>
@@ -22,48 +23,53 @@
       removePath:  "forget"
     });
 
-    Telegraph.listQueries('.queries');
+    Telegraph.listQueries(".queries");
 
-    function addQuery() {
-      var submit = $("#query-submit");
-      submit.attr("disabled", true);
+    $(document).ready(function() {
+      Telegraph.addGroupOpts("#type");
 
-      Telegraph.addQuery({
-        name:  $("#queryName").val(),
-        type:  $("#queryType").val(),
-        query: $("#queryQuery").val(),
-        replaySince: $("#queryReplay").val(),
-        success: function (d) {
-          submit.attr("disabled", false);
-        }
+      $("#test").click(function(e) {
+        e.target.disabled = true;
+        Telegraph.testQuery({
+          query: $("#query").val(),
+        }, function(d) {
+          $("#stagingarea").val(d);
+          e.target.disabled = false;
+        });
       });
 
-      return false;
-    };
+      $("#add").click(function(e) {
+        e.target.disabled = true;
+        Telegraph.addQuery({
+          name:  $("#name").val(),
+          type:  $("#type").val(),
+          query: $("#query").val(),
+          replaySince: $("#replay-since").val()
+        }, function(d) {
+          e.target.disabled = false;
+        });
+      });
+    });
   </script>
-
 </head>
 
 <body>
-  <div id="add-query">
-    <form onSubmit="return addQuery()">
-      <label for="type">Type</label>
-      <select name="type" id="queryType">
-        <option value="graphite">Graphite</option>
-        <option value="phonograph">Phonograph</option>
-        <option value="cassette">Cassette</option>
-      </select>
-      <label for="name">Name</label>
-      <input type="text" name="name" id="queryName" />
-      <label for="query">Query</label>
-      <textarea name="query" id="queryQuery"></textarea>
-      <label for="replay">Replay Since</label>
-      <input type="text" name="replay-since" id="queryReplay" />
-      <br /> <!-- styling is a total mystery to me, someone smarter plz fix -->
-      <input id="query-submit" type="submit" name="submit" value="Add" />
+  <div id="add-container">
+    <form>
+      <textarea id="query"></textarea>
+      <select id="type"></select>
+      <input type="text" id="name" placeholder="a:query:name"></input>
+      <input type="date" id="replay-since" placeholder="11/24/2012">
+      <div id="buttons">
+        <button type="button" id="test" class="button">Test</button>
+        <button type="button" id="add" class="button">Add</button>
+      </div>
     </form>
   </div>
-
+  <div id="staging-container">
+    <textarea id="stagingarea"></textarea>
+  </div>
+  <div class="clear"></div>
   <div class="chart queries">
   </div>
 </body>
