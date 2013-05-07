@@ -41,7 +41,7 @@
           testXhr = Telegraph.testQuery({
             query: $("#query").val(),
           }, function(d) {
-            $("#stagingarea").val(d);
+            $("#stagingarea").val(d).scrollTop(999999999);
           });
         }
       });
@@ -77,7 +77,7 @@
     </form>
   </div>
   <div id="staging-container">
-    <textarea id="stagingarea"></textarea>
+    <textarea id="stagingarea" disabled="disabled"></textarea>
   </div>
   <div class="clear"></div>
   <div class="chart queries">
