@@ -3,14 +3,14 @@ body {
 }
 
 #add-container {
-  width: 60%;
+  width: 42%;
   height: 300px;
   float: left;
 }
 
 #staging-container {
   float: right;
-  width: 38%;
+  width: 55%;
 }
 
 #queries {
@@ -20,25 +20,27 @@ body {
 #query {
   width: 100%;
   height: 200px;
+  font-family: monospace;
 }
 
 #stagingarea {
   width: 100%;
   height: 200px;
+  font-family: monospace;
 }
 
 #buttons {
   float: right;
 }
 
-#period {
-  width: 25%;
-  margin-left: 30px;
+#replay-since {
+  width: 50%;
+  margin-left: 20px;
 }
 
 #name {
-  width: 15%;
-  margin-left: 30px;
+  width: 50%;
+  margin-left: 20px;
 }
 
 .clear { clear: both; }
