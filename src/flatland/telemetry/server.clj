@@ -9,6 +9,7 @@
            [query :as query]
            [trace :as trace])
    [lamina.trace.router :as router]
+   lamina.query.struct
    (gloss [core :as gloss])
    (aleph [formats :as formats]
           [http :as http]
@@ -59,8 +60,9 @@
 (defn inspector
   "Inspect or debug a probe query without sending it to any queries, by returning an endless,
    streaming HTTP response of its values."
-  [config query]
-  (let [{:keys [success value]} (try-subscribe (formats/url-decode query) (:period config))]
+  [config query period]
+  (let [{:keys [success value]} (try-subscribe (formats/url-decode query)
+                                               (or period (:period config)))]
     (if success
       {:status 200
        :headers {"content-type" "application/json"}
@@ -280,8 +282,10 @@
                                        (Long/parseLong replay-since))))
                         (POST "/remove-query" [type name]
                           (remove-query config (keyword type) name)))
-        readers (routes (ANY "/inspect" [query]
-                          (inspector config query))
+        readers (routes (ANY "/inspect" [query period]
+                          (inspector config query
+                                     (when (seq period)
+                                       (lamina.query.struct/parse-time-interval period))))
                         (ANY "/queries" []
                           (get-queries config))
                         (ANY "/targets" []
