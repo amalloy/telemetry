@@ -168,7 +168,9 @@
   "Produces a summary of all probe queries and the queries they're writing to."
   [config]
   {:status 200 :headers {"content-type" "application/json"}
-   :body (str (formats/encode-json->string (readable-queries @(:queries config)))
+   :body (str (formats/encode-json->string (for [[type queries] @(:queries config)
+                                                 [name {:keys [query]}] queries]
+                                             (keyed [type name query])))
               "\n")})
 
 (defn save-queries
