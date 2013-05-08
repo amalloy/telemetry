@@ -67,7 +67,7 @@
       {:status 200
        :headers {"content-type" "application/json"}
        :body (->> value
-                  (lamina/map* formats/encode-json->string)
+                  (lamina/map* pr-str)
                   (lamina/map* #(str % "\n")))}
       {:status 400
        :headers {"content-type" "text/plain"}
