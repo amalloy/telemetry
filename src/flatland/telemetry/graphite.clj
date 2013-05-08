@@ -47,16 +47,17 @@
        (= 3 (count x))
        (not-any? nil? x)))
 
+(defn log-as-errors [channel]
+  (doto channel
+    (lamina/receive-all (fn [packet]
+                          (log/error (format "Invalid graphite packet %s"
+                                             (pr-str packet)))))))
+
 (defn init-connection
   "Starts a channel that will siphon from the given nexus into a graphite server forever.
    Returns a thunk that will close the connection."
   [nexus host port]
-  (let [errors (-> nexus
-                   (->> (lamina/remove* valid-packet?))
-                   (doto
-                     (lamina/receive-all (fn [packet]
-                                           (log/error (format "Invalid graphite packet %s"
-                                                              (pr-str packet)))))))
+  (let [errors (log-as-errors (lamina/remove* valid-packet? nexus))
         valid (->> nexus
                    (lamina/filter* #(not-any? nil? %))
                    (lamina/map* graphitize-name))
