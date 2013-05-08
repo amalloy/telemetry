@@ -232,6 +232,11 @@
    :body (str (formats/encode-json->string targets)
               "\n")})
 
+(defn render-schema [config]
+  {:status 200 :headers {"content-type" "application/json"}
+   :body (str (formats/encode-json->string {:type (map name (keys (:modules config)))})
+              "\n")})
+
 (defn parse-json [address probe data]
   (try
     (formats/decode-json data)
@@ -289,7 +294,9 @@
                         (ANY "/queries" []
                           (get-queries config))
                         (ANY "/targets" []
-                          (render-targets (get-targets config))))]
+                          (render-targets (get-targets config)))
+                        (GET "/schema" []
+                          (render-schema config)))]
     (-> (routes (wrap-saving-queries writers config)
                 readers
                 (module-routes config))
