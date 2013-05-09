@@ -105,7 +105,7 @@ into the time-unit representation that telemetry uses."
               (.add Calendar/DATE -1))))
 
 (defn timed-tuple [timestamp value]
-  [timestamp value])
+  [(* 1000 timestamp) value])
 
 (defn tuple-time [tuple]
   (nth tuple 0))
@@ -130,7 +130,7 @@ into the time-unit representation that telemetry uses."
                                               (phonograph-seq open pattern from until))})]
     {:target (subs target 1)
      :datapoints (for [{:keys [timestamp value]} datapoints]
-                   [value timestamp])}))
+                   [value (/ timestamp 1000)])})) ;; render API expects [value time] tuples
 
 (defn absolute-time [t ref]
   (if (neg? t)
