@@ -1,5 +1,10 @@
 body {
   min-width: 1170px;
+  padding: 10px;
+}
+
+body * {
+  box-sizing: border-box;
 }
 
 #add-container {
