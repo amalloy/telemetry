@@ -13,8 +13,10 @@ body {
   width: 55%;
 }
 
-#queries {
-  margin-top: 50px;
+.queries {
+  margin-top: 20px;
+  float: left;
+  width: 100%;
 }
 
 #query {
@@ -43,4 +45,6 @@ body {
   margin-left: 20px;
 }
 
-.clear { clear: both; }
+.table tr:first-child {
+  display: none;
+}
