@@ -45,7 +45,8 @@
 (defn valid-packet? [x]
   (and (sequential? x)
        (= 3 (count x))
-       (not-any? nil? x)))
+       (string? (first x))
+       (every? number? (rest x))))
 
 (defn log-as-errors [channel]
   (doto channel
