@@ -145,7 +145,7 @@ into the time-unit representation that telemetry uses."
           [from until] (for [[timespec default] [[from (subtract-day now)]
                                                  [until now]]]
                          (unix-time
-                          (if timespec
+                          (if (seq timespec)
                             (let [diff (-> timespec
                                            (s/replace "-" "")
                                            (lamina.query.struct/parse-time-interval)
