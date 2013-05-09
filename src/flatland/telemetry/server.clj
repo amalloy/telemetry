@@ -13,6 +13,7 @@
           [http :as http]
           [tcp :as tcp])
    [compojure.core :refer [routes GET POST ANY context]]
+   [compojure.route :refer [resources]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals]]
    [flatland.telemetry.util :refer [unix-time from-unix-time]]
@@ -255,7 +256,8 @@
                           (get-listeners config)))]
     (-> (routes (wrap-saving-listeners writers config)
                 readers
-                (module-routes config))
+                (module-routes config)
+                (resources "/"))
         wrap-keyword-params
         wrap-params
         wrap-json-params
