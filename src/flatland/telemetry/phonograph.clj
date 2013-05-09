@@ -8,6 +8,7 @@
             [aleph.formats :as formats]
             [lamina.core :as lamina]
             [lamina.query :as query]
+            lamina.query.struct
             [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:import java.io.File
@@ -121,12 +122,13 @@ into the time-unit representation that telemetry uses."
 
 (defn points [open targets from until]
   (for [[target datapoints]
-        ,,(query/query-seqs (zipmap targets (repeat nil))
+        ,,(query/query-seqs (zipmap (for [target targets]
+                                      (str "&" target))
+                                    (repeat nil))
                             {:payload tuple-value :timestamp tuple-time
                              :seq-generator (fn [pattern]
-                                              (phonograph-seq open (s/replace pattern ":" ".")
-                                                              from until))})]
-    (keyed [target datapoints])))
+                                              (phonograph-seq open pattern from until))})]
+    {:target (subs target 1) :datapoints datapoints}))
 
 (defn absolute-time [t ref]
   (if (neg? t)
@@ -138,20 +140,23 @@ into the time-unit representation that telemetry uses."
     (let [targets (if (coll? target) ; if there's only one target it's a string, but if multiple are
                     target           ; specified then compojure will make a list of them
                     [target])
-          now-date (Date.)
-          unix-now (unix-time now-date)]
-      (with-adjustments #(when (seq %) (Long/parseLong %)) [from until]
-        (let [until (if until
-                      (absolute-time until unix-now)
-                      unix-now)
-              from (if from
-                     (absolute-time from until)
-                     (unix-time (subtract-day now-date)))]
-          (if-let [result (points open targets from until)]
-            {:status 200
-             :headers {"Content-Type" "application/json"}
-             :body (formats/encode-json->string result)}
-            {:status 404}))))))
+          now (Date.)
+          now-ms (.getTime now)
+          [from until] (for [[timespec default] [[from (subtract-day now)]
+                                                 [until now]]]
+                         (unix-time
+                          (if timespec
+                            (let [diff (-> timespec
+                                           (s/replace "-" "")
+                                           (lamina.query.struct/parse-time-interval)
+                                           (long))]
+                              (Date. (- now-ms diff)))
+                            default)))]
+      (if-let [result (points open targets from until)]
+        {:status 200
+         :headers {"Content-Type" "application/json"}
+         :body (formats/encode-json->string result)}
+        {:status 404}))))
 
 (let [default-config {:db-opts default-db-opts
                       :archive-retentions default-archive-retentions}]
