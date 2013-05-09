@@ -17,7 +17,7 @@
    [compojure.core :refer [routes GET POST ANY context]]
    [compojure.route :refer [resources]]
    [flatland.useful.utils :refer [returning]]
-   [flatland.useful.map :refer [update keyed map-vals]]
+   [flatland.useful.map :refer [update keyed map-vals ordering-map]]
    [flatland.telemetry.util :refer [unix-time from-unix-time]]
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
@@ -329,12 +329,13 @@
   "Starts the telemetry http and tcp servers, and registers any modules given. Returns a server
   handle which can be terminated via destroy!. The handle is just a map with some useful data, but
   should be considered opaque: tamper at your own risk."
-  [{:keys [modules http-port tcp-port period] :or {period 1000} :as config}]
+  [{:keys [modules http-port tcp-port period module-order] :or {period 1000} :as config}]
   (let [modules (init-modules modules period)
         config (doto (assoc config
                        :queries (ref {})
                        :clients (agent {})
-                       :modules modules)
+                       :modules (into (ordering-map module-order)
+                                      modules))
                  (restore-queries))
         tcp (tcp/start-tcp-server (tcp-handler config)
                                   ; we override the frame with utf-8 because gloss has some bad
@@ -378,4 +379,5 @@
                                  {:init phonograph/init
                                   :options {:base-path "./storage/phonograph"}}
                                  {:init cassette/init
-                                  :options {:base-path "./storage/cassette"}}]}))))
+                                  :options {:base-path "./storage/cassette"}}]
+                       :module-order [:graphite :phonograph :cassette]}))))
