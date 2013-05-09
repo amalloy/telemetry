@@ -25,17 +25,27 @@
       $("#query").val(d.query);
     };
 
-    var defaultType = "phonograph";
+    Telegraph.addTree(".queries");
+    
+    function selectTree() {
+      var type = $("#type").val();
+      window.location.hash = "#" + type;
+      Telegraph.selectTree(type);
+    };
 
-    Telegraph.addTree(".queries", defaultType);
+    $(window).on("hashchange", function() {
+      $("#type").val(window.location.hash.substr(1));
+      selectTree();
+    });
 
     $(document).ready(function() {
-      Telegraph.addOpts("type", "#type", defaultType);
-
       $("#type").change(function(e) {
-        var type = $(this).val();
-        Telegraph.selectTree(type);
+        window.location.hash = "#" + $(this).val();
+        selectTree();
       });
+
+      Telegraph.addOpts("type", "#type");
+      selectTree();
 
       var testXhr;
       $("#test").click(function(e) {
