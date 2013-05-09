@@ -50,6 +50,10 @@ body * {
   margin-left: 20px;
 }
 
-.table tr:first-child {
+.nvd3 table tr:first-child {
   display: none;
+}
+
+.nvd3 table tr td:nth-child(2) {
+  font-family: monospace;
 }
