@@ -1,13 +1,13 @@
 (ns flatland.telemetry.phonograph
   (:require [flatland.telemetry.graphite.config :as config]
             [flatland.telemetry.sinks :as sinks]
-            [flatland.telemetry.util :refer [memoize* unix-time]]
+            [flatland.telemetry.util :as util :refer [memoize* unix-time]]
             [flatland.phonograph :as phonograph]
             [flatland.useful.utils :refer [with-adjustments]]
             [flatland.useful.map :refer [keyed]]
             [aleph.formats :as formats]
             [lamina.core :as lamina]
-            [lamina.trace.router :as router]
+            [lamina.query :as query]
             [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:import java.io.File
@@ -121,11 +121,11 @@ into the time-unit representation that telemetry uses."
 
 (defn points [open targets from until]
   (for [[target datapoints]
-        ,,(router/query-seqs (zipmap targets (repeat nil))
-                             {:payload tuple-value :timestamp tuple-time
-                              :seq-generator (fn [pattern]
-                                               (phonograph-seq open (s/replace pattern ":" ".")
-                                                               from until))})]
+        ,,(query/query-seqs (zipmap targets (repeat nil))
+                            {:payload tuple-value :timestamp tuple-time
+                             :seq-generator (fn [pattern]
+                                              (phonograph-seq open (s/replace pattern ":" ".")
+                                                              from until))})]
     (keyed [target datapoints])))
 
 (defn absolute-time [t ref]
@@ -163,7 +163,7 @@ into the time-unit representation that telemetry uses."
      each storage spec should have a :granularity and a :duration, in time units as supported by
      flatland.telemetry.graphite.config/unit-multipliers."
     [config]
-    (let [{:keys [archive-retentions] :as config} (merge default-config config)
+    (let [{:keys [archive-retentions base-path] :as config} (merge default-config config)
           open (phonograph-opener config)
           nexus (lamina/channel* :permanent? true :grounded? true)]
       (lamina/receive-all nexus
@@ -182,4 +182,7 @@ into the time-unit representation that telemetry uses."
        :period (fn [label]
                  (when-let [granularity (:granularity (first ((:archive-retentions config) label)))]
                    (* 1000 (config/as-seconds granularity))))
+       :targets (when base-path
+                  (fn []
+                    (util/target-names (util/path->targets base-path ".pgr"))))
        :debug {:config config, :nexus nexus, :open open, :cache (meta open)}})))

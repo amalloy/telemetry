@@ -6,8 +6,10 @@
    [swank.swank :as swank]
    (lamina [core :as lamina]
            [connections :as connection]
+           [query :as query]
            [trace :as trace])
    [lamina.trace.router :as router]
+   lamina.query.struct
    (gloss [core :as gloss])
    (aleph [formats :as formats]
           [http :as http]
@@ -45,27 +47,39 @@
   "Subscribe to the given trace descriptor, returning a channel of the resuts. Sets the
    period for all periodic operators before parsing."
   [query period]
-  (trace/subscribe trace/local-trace-router query
+  (trace/subscribe trace/local-trace-router (str "&" query)
                    {:period period}))
 
-;;; functions that work on the listener list, and return Ring responses
+(defn try-subscribe [query period]
+  (try
+    {:success true, :value (subscribe query period)}
+    (catch Exception e
+      {:success false, :value (.getMessage e)})))
+
+;;; functions that work on the query list, and return Ring responses
 
 (defn inspector
-  "Inspect or debug a probe query without sending it to any listeners, by returning an endless,
+  "Inspect or debug a probe query without sending it to any queries, by returning an endless,
    streaming HTTP response of its values."
-  [config query]
-  {:status 200
-   :headers {"content-type" "application/json"}
-   :body (->> (subscribe (formats/url-decode query) (:period config))
-              (lamina/map* formats/encode-json->string)
-              (lamina/map* #(str % "\n")))})
+  [config query period]
+  (let [{:keys [success value]} (try-subscribe (formats/url-decode query)
+                                               (or period (:period config)))]
+    (if success
+      {:status 200
+       :headers {"content-type" "application/json"}
+       :body (->> value
+                  (lamina/map* pr-str)
+                  (lamina/map* #(str % "\n")))}
+      {:status 400
+       :headers {"content-type" "text/plain"}
+       :body value})))
 
-(defn remove-listener
+(defn remove-query
   "Disconnects any channel writing to the given name/pattern."
   [config type name]
-  (let [listeners (:listeners config)]
-    (if-let [{:keys [unsubscribe query]} (dosync (returning (get-in @listeners [type name])
-                                                   (alter listeners update type dissoc name)))]
+  (let [queries (:queries config)]
+    (if-let [{:keys [unsubscribe query]} (dosync (returning (get-in @queries [type name])
+                                                   (alter queries update type dissoc name)))]
       (do (unsubscribe)
           {:status 200 :headers {"content-type" "application/json"}
            :body (formats/encode-json->string {:query query})})
@@ -73,7 +87,7 @@
 
 (defn replay [config query period start-time]
   (let [replayer (some :replay (vals (:modules config)))
-        data-seq (-> (router/query-seqs
+        data-seq (-> (query/query-seqs
                       {query nil}
                       {:timestamp #(* 1000 (:timestamp %)) :payload identity :period period
                        :seq-generator (fn [pattern]
@@ -112,70 +126,78 @@
     (-> live-channel
         (stitch-replay (replay config query period replay-since) response-channel))))
 
-(defn add-listener
+(defn add-query
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
   [config type label query replay-since]
   (let [{:keys [listen period subscription-filter]} (get-in config [:modules type])]
     (if listen
       (let [{:keys [label query]} (subscription-filter (keyed [label query]))
-            response-channel (lamina/channel)]
-        (remove-listener config type label)
-        (let [period (period label)
-              live-channel (->> (subscribe query period)
-                                (lamina/map* (fn [obj]
-                                               {:timestamp (unix-time (Date.))
-                                                :value obj})))
-              channel (maybe-replay config live-channel query period replay-since response-channel)
-              unsubscribe #(lamina/close channel)]
-          (dosync
-           (alter (:listeners config)
-                  assoc-in [type label]
-                  (keyed [query channel unsubscribe])))
-          (listen channel label)
-          {:status 200
-           :body response-channel}))
-      {:status 404 :body (format "Unrecognized listener type %s\n" (name (or type "nil")))})))
+            period (period label)
+            {:keys [success value]} (try-subscribe query period)]
+        (if success
+          (do
+            (remove-query config type label)
+            (let [response-channel (lamina/channel)
+                  live-channel (->> value
+                                    (lamina/map* (fn [obj]
+                                                   {:timestamp (unix-time (Date.))
+                                                    :value obj})))
+                  channel (maybe-replay config live-channel query period replay-since response-channel)
+                  unsubscribe #(lamina/close channel)]
+              (dosync
+               (alter (:queries config)
+                      assoc-in [type label]
+                      (keyed [query channel unsubscribe])))
+              (listen channel label)
+              {:status 200
+               :body response-channel}))
+          {:status 400 :content-type "text/plain"
+           :body value}))
+      {:status 404 :content-type "text/plain"
+       :body (format "Unrecognized query type %s\n" (name (or type "nil")))})))
 
-(defn readable-listeners
-  "A view of the listeners map which can be printed and reread."
-  [listeners]
+(defn readable-queries
+  "A view of the queries map which can be printed and reread."
+  [queries]
   (into {}
-        (for [[type listeners] listeners]
+        (for [[type queries] queries]
           [type
            (into {}
-                 (for [[name listener] listeners]
-                   [name (:query listener)]))])))
+                 (for [[name query] queries]
+                   [name (:query query)]))])))
 
-(defn get-listeners
-  "Produces a summary of all probe queries and the listeners they're writing to."
+(defn get-queries
+  "Produces a summary of all probe queries and the queries they're writing to."
   [config]
   {:status 200 :headers {"content-type" "application/json"}
-   :body (str (formats/encode-json->string (readable-listeners @(:listeners config)))
+   :body (str (formats/encode-json->string (for [[type queries] @(:queries config)
+                                                 [name {:keys [query]}] queries]
+                                             (keyed [type name query])))
               "\n")})
 
-(defn save-listeners
-  "Saves the current listeners to a file in the current directory."
+(defn save-queries
+  "Saves the current queries to a file in the current directory."
   [config]
-  (spit (:config-path config) (pr-str (readable-listeners @(:listeners config)))))
+  (spit (:config-path config) (pr-str (readable-queries @(:queries config)))))
 
-(defn restore-listeners
-  "Restores listeners from the designated file."
+(defn restore-queries
+  "Restores queries from the designated file."
   [config]
-  (doseq [[type listeners] (try
+  (doseq [[type queries] (try
                              (read-string (slurp (:config-path config)))
                              (catch Exception e nil))
-          [name query] listeners]
-    (add-listener config type name query nil)))
+          [name query] queries]
+    (add-query config type name query nil)))
 
-(defn wrap-saving-listeners
-  "Wraps a ring handler such that, if the handler succeeds, the current listener set is saved before
+(defn wrap-saving-queries
+  "Wraps a ring handler such that, if the handler succeeds, the current query set is saved before
   returning."
   [handler config]
   (if (:config-path config)
     (fn [request]
       (when-let [response (handler request)]
-        (save-listeners config)
+        (save-queries config)
         response))
     handler))
 
@@ -199,6 +221,22 @@
                :when handler]
            (context (str "/" (name module-name)) []
                     handler))))
+
+(defn get-targets [{:keys [modules] :as config}]
+  (into {}
+        (for [[module-name {:keys [targets]}] modules
+              :when targets]
+          [module-name (targets)])))
+
+(defn render-targets [targets]
+  {:status 200 :headers {"content-type" "application/json"}
+   :body (str (formats/encode-json->string targets)
+              "\n")})
+
+(defn render-schema [config]
+  {:status 200 :headers {"content-type" "application/json"}
+   :body (str (formats/encode-json->string {:type (map name (keys (:modules config)))})
+              "\n")})
 
 (defn parse-json [address probe data]
   (try
@@ -244,17 +282,23 @@
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
   [config]
-  (let [writers (routes (POST "/listen" [type name query replay-since]
-                          (add-listener config (keyword type) name query
-                                        (when replay-since
-                                          (Long/parseLong replay-since))))
-                        (POST "/forget" [type name]
-                          (remove-listener config (keyword type) name)))
-        readers (routes (ANY "/inspect" [query]
-                          (inspector config query))
-                        (ANY "/listeners" []
-                          (get-listeners config)))]
-    (-> (routes (wrap-saving-listeners writers config)
+  (let [writers (routes (POST "/add-query" [type name query replay-since]
+                          (add-query config (keyword type) name query
+                                     (when (seq replay-since)
+                                       (Long/parseLong replay-since))))
+                        (POST "/remove-query" [type name]
+                          (remove-query config (keyword type) name)))
+        readers (routes (ANY "/inspect" [query period]
+                          (inspector config query
+                                     (when (seq period)
+                                       (lamina.query.struct/parse-time-interval period))))
+                        (ANY "/queries" []
+                          (get-queries config))
+                        (ANY "/targets" []
+                          (render-targets (get-targets config)))
+                        (GET "/schema" []
+                          (render-schema config)))]
+    (-> (routes (wrap-saving-queries writers config)
                 readers
                 (module-routes config)
                 (resources "/"))
@@ -288,10 +332,10 @@
   [{:keys [modules http-port tcp-port period] :or {period 1000} :as config}]
   (let [modules (init-modules modules period)
         config (doto (assoc config
-                       :listeners (ref {})
+                       :queries (ref {})
                        :clients (agent {})
                        :modules modules)
-                 (restore-listeners))
+                 (restore-queries))
         tcp (tcp/start-tcp-server (tcp-handler config)
                                   ; we override the frame with utf-8 because gloss has some bad
                                   ; error-handling code that breaks in some cases if we let it split
@@ -305,9 +349,9 @@
     {:shutdown (fn shutdown []
                  (tcp)
                  (http)
-                 (doseq [[module listeners] @(:listeners config)
-                         [name listener] listeners]
-                   ((:unsubscribe listener)))
+                 (doseq [[module queries] @(:queries config)
+                         [name query] queries]
+                   ((:unsubscribe query)))
                  (doseq [[module-name {:keys [shutdown]}] (:modules config)]
                    (shutdown)))
      :config config
@@ -329,7 +373,8 @@
     (def server (init {:period period, :config-path "config.clj"
                        :modules [{:init graphite/init
                                   :options {:host "localhost" :port 2003
-                                            :config-reader read-schema}}
+                                            :config-reader read-schema
+                                            :storage-path "/opt/graphite/storage/whisper"}}
                                  {:init phonograph/init
                                   :options {:base-path "./storage/phonograph"}}
                                  {:init cassette/init

@@ -4,8 +4,11 @@
             [aleph.tcp :as tcp]
             [gloss.core :as gloss]
             [flatland.telemetry.sinks :as sinks]
+            [flatland.telemetry.util :as util]
             [lamina.connections :as connection]
             [flatland.telemetry.graphite.config :as config]
+            [clojure.tools.logging :as log]
+            [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:use flatland.useful.debug))
 
@@ -36,30 +39,52 @@
   [host port]
   (tcp/tcp-client {:host host :port port :frame wire-format}))
 
+(defn graphitize-name [[name value time]]
+  [(s/replace name ":" ".") value time])
+
+(defn valid-packet? [x]
+  (and (sequential? x)
+       (= 3 (count x))
+       (string? (first x))
+       (every? number? (rest x))))
+
+(defn log-as-errors [channel]
+  (doto channel
+    (lamina/receive-all (fn [packet]
+                          (log/error (format "Invalid graphite packet %s"
+                                             (pr-str packet)))))))
+
 (defn init-connection
   "Starts a channel that will siphon from the given nexus into a graphite server forever.
    Returns a thunk that will close the connection."
   [nexus host port]
-  (let [graphite-connector (connection/persistent-connection
+  (let [errors (log-as-errors (lamina/remove* valid-packet? nexus))
+        valid (->> nexus
+                   (lamina/filter* #(not-any? nil? %))
+                   (lamina/map* graphitize-name))
+        graphite-connector (connection/persistent-connection
                             #(graphite-channel host port)
                             {:on-connected (fn [ch]
                                              (lamina/ground ch) ;; ignore input from server
-                                             (lamina/siphon (lamina/map* #(s/replace % ":" ".")
-                                                                         nexus)
-                                                            ch))})]
+                                             (lamina/siphon valid ch))})]
     (graphite-connector)
     (fn []
+      (lamina/close errors)
       (connection/close-connection graphite-connector))))
 
-(defn init [{:keys [host port config-reader] :or {host "localhost" port 2003}}]
+(defn init [{:keys [host port storage-path config-reader] :or {host "localhost" port 2003}}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
         stop-graphite (init-connection nexus host port)]
     {:name :graphite
      :shutdown stop-graphite
      :handler (GET "/render" []
-                   {:status 200 :body "Graphite's sample handler."})
+                {:status 200 :body "Graphite's sample handler."})
      :period (granularity-decider config-reader)
      :listen (fn listen [ch name]
                (-> ch
                    (->> (lamina/mapcat* (sinks/sink name)))
-                   (lamina/siphon nexus)))}))
+                   (lamina/siphon nexus)))
+     :debug {:nexus nexus}
+     :targets (when storage-path
+                (fn []
+                  (util/target-names (util/path->targets storage-path ".wsp"))))}))

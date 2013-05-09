@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<title>Telemetry Admin</title>
+
+<head>
+  <link rel="stylesheet" type="text/css" href="lib/nv.d3.css">
+  <link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.min.css">
+  <link rel="stylesheet" type="text/css" href="admin.css">
+
+  <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/2.10.0/d3.v2.js"></script>
+  <script src="lib/nv.d3.js"></script>
+
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
+
+  <script src="src/telegraph.js"></script>
+
+  <script>
+    window.Telegraph = new Telegraph({
+      server:      "telemetry-001.geni.com:1847",
+      queriesPath: "listeners",
+      addPath:     "listen",
+      testPath:    "inspect",
+      removePath:  "forget"
+    });
+
+    Telegraph.listQueries(".queries");
+
+    $(document).ready(function() {
+      Telegraph.addGroupOpts("#type");
+
+      var testXhr;
+      $("#test").click(function(e) {
+        if (testXhr) {
+          testXhr.abort();
+          testXhr = null;
+          $(this).html("Test")
+        } else {
+          $(this).html("Stop")
+          $("#stagingarea").val("");
+          testXhr = Telegraph.testQuery({
+            query: $("#query").val(),
+          }, function(d) {
+            $("#stagingarea").val(d).scrollTop(999999999);
+          });
+        }
+      });
+
+      $("#add").click(function(e) {
+        var $button = $(this);
+        $button.attr("disabled", true);
+        Telegraph.addQuery({
+          name:  $("#name").val(),
+          type:  $("#type").val(),
+          query: $("#query").val(),
+          replaySince: $("#replay-since").val()
+        }, function(d) {
+          $button.attr("disabled", false);
+        });
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div id="add-container">
+    <form>
+      <select id="type"></select>
+      <input type="text" id="name" placeholder="a:query:name"></input>
+      <textarea id="query"></textarea>
+      Replay Since
+      <input type="date" id="replay-since" placeholder="yyyy-mm-dd">
+      <div id="buttons">
+        <button type="button" id="test" class="button">Test</button>
+        <button type="button" id="add" class="button">Add</button>
+      </div>
+    </form>
+  </div>
+  <div id="staging-container">
+    <textarea id="stagingarea" disabled="disabled"></textarea>
+  </div>
+  <div class="clear"></div>
+  <div class="chart queries">
+  </div>
+</body>

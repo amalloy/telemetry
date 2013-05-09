@@ -31,8 +31,12 @@
   (let [base-file (fs/file base-path)]
     (fn [{:keys [pattern start-time]}]
       (let [streams (for [file (fs/glob base-file pattern)]
-                      (cassette/messages-since (cassette/open file codec false)
-                                               #(>= (% "time") start-time)))
+                      (let [topic (fs/base-name file)]
+                        (for [record (cassette/messages-since (cassette/open file codec false)
+                                                               #(>= (% "time") start-time))]
+                          (assoc record "messages"
+                                 (for [message (get record "messages")]
+                                   (assoc message :topic topic))))))
             timeline (apply seq/merge-sorted #(< (%1 "time") (%2 "time"))
                             (pmap seq streams))]
         (for [{:strs [time messages]} timeline
@@ -49,7 +53,8 @@
                         (fn [[label value time]]
                           (when (seq value)
                             (append-message! (open label)
-                                             {:time time, :messages value}))))
+                                             {:time time, :messages (for [message value]
+                                                                      (dissoc message :topic))}))))
     {:name :cassette
      :subscription-filter (fn [{:keys [label query] :as original}]
                             (if (and (re-find #"\*" label)
@@ -62,6 +67,8 @@
      :shutdown (fn shutdown []
                  ;; the only way to close these files is to let them get GCed
                  (reset! (:cache (meta open)) nil))
+     :targets (fn []
+                (map fs/base-name (.listFiles (fs/file base-path))))
      :listen (fn [ch name]
                (-> ch
                    (->> (lamina/mapcat* (sink name)))
