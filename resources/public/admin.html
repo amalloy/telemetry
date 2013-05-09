@@ -17,19 +17,25 @@
 
   <script>
     window.Telegraph = new Telegraph({
-      server:     "telemetry-001.geni.com:1847",
-      testPath:   "inspect",
-      removePath: "forget"
+      server:   "telemetry-001.geni.com:1847",
+      testPath: "inspect"
     });
     Telegraph.clickQuery = function(d) {
       $("#name").val(d.opts.name);
       $("#query").val(d.query);
     };
 
-    Telegraph.addTree(".queries");
+    var defaultType = "phonograph";
+
+    Telegraph.addTree(".queries", defaultType);
 
     $(document).ready(function() {
-      Telegraph.addOpts("type", "#type");
+      Telegraph.addOpts("type", "#type", defaultType);
+
+      $("#type").change(function(e) {
+        var type = $(this).val();
+        Telegraph.selectTree(type);
+      });
 
       var testXhr;
       $("#test").click(function(e) {
