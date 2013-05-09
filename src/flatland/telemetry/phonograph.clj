@@ -128,7 +128,9 @@ into the time-unit representation that telemetry uses."
                             {:payload tuple-value :timestamp tuple-time
                              :seq-generator (fn [pattern]
                                               (phonograph-seq open pattern from until))})]
-    {:target (subs target 1) :datapoints datapoints}))
+    {:target (subs target 1)
+     :datapoints (for [{:keys [timestamp value]} datapoints]
+                   [value timestamp])}))
 
 (defn absolute-time [t ref]
   (if (neg? t)
