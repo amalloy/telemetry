@@ -17,17 +17,35 @@
 
   <script>
     window.Telegraph = new Telegraph({
-      server:      "telemetry-001.geni.com:1847",
-      queriesPath: "listeners",
-      addPath:     "listen",
-      testPath:    "inspect",
-      removePath:  "forget"
+      server:   "telemetry-001.geni.com:1847",
+      testPath: "inspect"
+    });
+    Telegraph.clickQuery = function(d) {
+      $("#name").val(d.opts.name);
+      $("#query").val(d.query);
+    };
+
+    Telegraph.addTree(".queries");
+    
+    function selectTree() {
+      var type = $("#type").val();
+      window.location.hash = "#" + type;
+      Telegraph.selectTree(type);
+    };
+
+    $(window).on("hashchange", function() {
+      $("#type").val(window.location.hash.substr(1));
+      selectTree();
     });
 
-    Telegraph.listQueries(".queries");
-
     $(document).ready(function() {
-      Telegraph.addGroupOpts("#type");
+      $("#type").change(function(e) {
+        window.location.hash = "#" + $(this).val();
+        selectTree();
+      });
+
+      Telegraph.addOpts("type", "#type");
+      selectTree();
 
       var testXhr;
       $("#test").click(function(e) {
