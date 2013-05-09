@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<title>Telemetry Graph Editor</title>
+
+<head>
+  <link rel="stylesheet" type="text/css" href="lib/nv.d3.css">
+  <link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.min.css">
+  <link rel="stylesheet" type="text/css" href="graph.css">
+
+  <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/2.10.0/d3.v2.js"></script>
+  <script src="lib/nv.d3.js"></script>
+
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore.js"></script>
+  <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
+
+  <script src="src/telegraph.js"></script>
+
+  <script>
+    window.Telegraph = new Telegraph({server: "telemetry-001.geni.com:1847"});
+    window.targets = [];
+
+    nv.addGraph(function() {
+      window.chart = nv.models.lineChart();
+      chart.xAxis.tickFormat(function(d){ return d3.time.format('%X')(new Date(d * 1000)) });
+      chart.yAxis.tickFormat(d3.format('.02f'));
+
+      d3.select('.graph svg')
+        .datum([])
+        .transition().duration(500)
+        .call(window.chart);
+
+      return window.chart;
+    });
+
+    function redrawChart() {
+      var data = Telegraph.getData(_.compact(targets), {
+        type:  "phonograph",
+        from:  $("#from").val()  || "-24h",
+        until: $("#until").val() || "0h"
+      });
+
+      d3.select('.graph svg')
+        .datum(data);
+      window.chart.update();
+
+      if (data.length == 0) {
+        $(".graph").css({opacity: 0})
+      } else {
+        $(".graph").css({opacity: 1})
+      }
+    }
+
+    function removeTarget(e) {
+      var link = $(this);
+      link.parents("tr").remove();
+      targets[link.attr("target_id")] = null;
+      redrawChart();
+    };
+
+    $(document).ready(function() {
+      $("#add").click(function(e) {
+        var query = $("#query").val();
+        var name  = $("#name").val() || query;
+        var target_id = targets.length;
+
+        targets.push({name: name, query: query, target_id: target_id});
+
+        var queryLink  = $("<a/>", {text: query})
+        var removeLink = $("<a/>", {text: "remove", target_id: target_id}).on("click", removeTarget);
+        var row = $("<tr/>").append($("<td/>", {text: name}))
+                            .append($("<td/>").html(queryLink))
+                            .append($("<td/>").html(removeLink));
+        $(".targets").append(row);
+
+        redrawChart();
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div id="add-container">
+    <form>
+      <input type="text" id="name" placeholder="Query Name">
+      <textarea id="query"></textarea>
+      <input type="text" id="from" placeholder="-24h">
+      <input type="text" id="until" placeholder="">
+
+      <div id="buttons">
+        <button type="button" id="add" class="button">Add</button>
+      </div>
+    </form>
+  </div>
+  <div id="list-container">
+    <table class="targets table table-striped">
+    </table>
+  </div>
+  <div id="graph-container">
+    <div class="chart graph">
+      <svg></svg>
+    </div>
+  </div>
+</body>
