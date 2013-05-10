@@ -22,7 +22,7 @@
     nv.addGraph(function() {
       window.chart = nv.models.lineChart();
       chart.xAxis.tickFormat(function(d){ return d3.time.format('%X')(new Date(d * 1000)) });
-      chart.yAxis.tickFormat(d3.format('.02f'));
+      chart.yAxis.tickFormat(d3.format('d'));
 
       d3.select('.graph svg')
         .datum([])
@@ -39,14 +39,13 @@
         until: $("#until").val() || "0h"
       });
 
-      d3.select('.graph svg')
-        .datum(data);
-      window.chart.update();
-
       if (data.length == 0) {
         $(".graph").css({opacity: 0})
       } else {
-        $(".graph").css({opacity: 1})
+        d3.select('.graph svg')
+          .datum(data);
+        window.chart.update();
+        setTimeout(function() { $(".graph").css({opacity: 1}) }, 500);
       }
     }
 
