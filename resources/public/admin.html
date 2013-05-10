@@ -13,24 +13,24 @@
   <script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore.js"></script>
   <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
 
-  <script src="src/telegraph.js"></script>
+  <script src="src/teleturn.js"></script>
 
   <script>
-    window.Telegraph = new Telegraph({
+    window.Teleturn = new Teleturn({
       server:   "telemetry-001.geni.com:1847",
       testPath: "inspect"
     });
-    Telegraph.clickQuery = function(d) {
+    Teleturn.clickQuery = function(d) {
       $("#name").val(d.opts.name);
       $("#query").val(d.query);
     };
 
-    Telegraph.addTree(".queries");
+    Teleturn.addTree(".queries");
     
     function selectTree() {
       var type = $("#type").val();
       window.location.hash = "#" + type;
-      Telegraph.selectTree(type);
+      Teleturn.selectTree(type);
     };
 
     $(window).on("hashchange", function() {
@@ -44,7 +44,7 @@
         selectTree();
       });
 
-      Telegraph.addOpts("type", "#type");
+      Teleturn.addOpts("type", "#type");
       selectTree();
 
       var testXhr;
@@ -56,7 +56,7 @@
         } else {
           $(this).html("Stop")
           $("#stagingarea").val("");
-          testXhr = Telegraph.testQuery({
+          testXhr = Teleturn.testQuery({
             query: $("#query").val(),
           }, function(d) {
             $("#stagingarea").val(d).scrollTop(999999999);
@@ -67,7 +67,7 @@
       $("#add").click(function(e) {
         var $button = $(this);
         $button.attr("disabled", true);
-        Telegraph.addQuery({
+        Teleturn.addQuery({
           name:  $("#name").val(),
           type:  $("#type").val(),
           query: $("#query").val(),
