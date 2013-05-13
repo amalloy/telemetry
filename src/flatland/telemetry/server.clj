@@ -129,11 +129,10 @@
 (defn add-query
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
-  [config type label query replay-since]
-  (let [{:keys [listen period subscription-filter]} (get-in config [:modules type])]
+  [config type label target query replay-since]
+  (let [{:keys [listen period]} (get-in config [:modules type])]
     (if listen
-      (let [{:keys [label query]} (subscription-filter (keyed [label query]))
-            period (period label)
+      (let [period (period label)
             {:keys [success value]} (try-subscribe query period)]
         (if success
           (do
@@ -148,8 +147,8 @@
               (dosync
                (alter (:queries config)
                       assoc-in [type label]
-                      (keyed [query channel unsubscribe])))
-              (listen channel label)
+                      (keyed [query channel target unsubscribe])))
+              (listen channel target)
               {:status 200
                :body response-channel}))
           {:status 400 :content-type "text/plain"
@@ -165,15 +164,15 @@
           [type
            (into {}
                  (for [[name query] queries]
-                   [name (:query query)]))])))
+                   [name (select-keys query [:query :target])]))])))
 
 (defn get-queries
   "Produces a summary of all probe queries and the queries they're writing to."
   [config]
   {:status 200 :headers {"content-type" "application/json"}
    :body (str (formats/encode-json->string (for [[type queries] @(:queries config)
-                                                 [name {:keys [query]}] queries]
-                                             (keyed [type name query])))
+                                                 [name {:keys [query target]}] queries]
+                                             (keyed [type name query target])))
               "\n")})
 
 (defn save-queries
@@ -187,8 +186,8 @@
   (doseq [[type queries] (try
                              (read-string (slurp (:config-path config)))
                              (catch Exception e nil))
-          [name query] queries]
-    (add-query config type name query nil)))
+          [name {:keys [query target]}] queries]
+    (add-query config type name target query nil)))
 
 (defn wrap-saving-queries
   "Wraps a ring handler such that, if the handler succeeds, the current query set is saved before
@@ -282,8 +281,9 @@
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
   [config]
-  (let [writers (routes (POST "/add-query" [type name query replay-since]
-                          (add-query config (keyword type) name query
+  (let [writers (routes (POST "/add-query" [type name target query replay-since]
+                          (add-query config (keyword type) name
+                                     (or (not-empty target) name) query
                                      (when (seq replay-since)
                                        (Long/parseLong replay-since))))
                         (POST "/remove-query" [type name]
