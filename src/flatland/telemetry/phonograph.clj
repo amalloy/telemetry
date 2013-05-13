@@ -121,15 +121,15 @@ into the time-unit representation that telemetry uses."
                              values))))
 
 (defn points [open targets from until]
-  (for [[target datapoints]
-        ,,(query/query-seqs (zipmap (for [target targets]
-                                      (str "&" target))
-                                    (repeat nil))
-                            {:payload tuple-value :timestamp tuple-time
-                             :seq-generator (fn [pattern]
-                                              (phonograph-seq open pattern from until))})]
-    {:target (subs target 1)
-     :datapoints (for [{:keys [timestamp value]} datapoints]
+  (for [target targets]
+    {:target target
+     :datapoints (for [{:keys [timestamp value]}
+                       ,,(val (first (query/query-seqs
+                                      {(str "&" target) nil}
+                                      {:payload tuple-value, :timestamp tuple-time
+                                       :seq-generator (fn [pattern]
+                                                        (phonograph-seq open pattern
+                                                                        from until))})))]
                    [value (/ timestamp 1000)])})) ;; render API expects [value time] tuples
 
 (defn absolute-time [t ref]
