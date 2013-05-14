@@ -12,5 +12,4 @@
                  [org.flatland/phonograph "0.1.4"]
                  [ring-middleware-format "0.2.4" :exclusions [ring]]
                  [org.flatland/cassette "0.2.5"]]
-  :main flatland.telemetry
-  :uberjar-name "telemetry.jar")
+  :main flatland.telemetry)
