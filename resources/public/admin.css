@@ -55,16 +55,21 @@ body * {
   margin-left: 10px;
 }
 
+.target:before {
+  content: "\2192";
+  margin-right: 5px;
+}
+
 #advanced {
   font-size: 12px;
   display: inline-block;
   vertical-align: top;
 }
 
-.nvd3 table tr:first-child {
+.nvd3 table tbody tr:first-child {
   display: none;
 }
 
-.nvd3 table tr td:nth-child(2) {
+.nvd3 table tr td:nth-child(3) {
   font-family: monospace;
 }

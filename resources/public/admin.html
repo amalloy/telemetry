@@ -20,9 +20,12 @@
       server:   "telemetry-001.geni.com:1847",
       testPath: "inspect"
     });
+
     Teleturn.clickQuery = function(d) {
       $("#name").val(d.opts.name);
-      $("#query").val(d.query);
+      $("#query").val(d.opts.query);
+      $("#target").val(d.opts.target);
+      if (d.opts.target) showAdvanced();
     };
 
     Teleturn.addTree(".queries");
@@ -31,6 +34,26 @@
       var type = $("#type").val();
       window.location.hash = "#" + type;
       Teleturn.selectTree(type);
+    };
+
+    function hideAdvanced() {
+      $("#advanced").attr("data-visible", "");
+      $("#advanced").html("advanced &raquo;");
+      $("#advanced-container").css({display:"none"});
+    };
+
+    function showAdvanced() {
+      $("#advanced").attr("data-visible", true);
+      $("#advanced").html("advanced &laquo;");
+      $("#advanced-container").css({display:"inline"});
+    };
+
+    function toggleAdvanced() {
+      if ($("#advanced").attr("data-visible")) {
+        hideAdvanced();
+      } else {
+        showAdvanced();
+      }
     };
 
     $(window).on("hashchange", function() {
@@ -77,18 +100,8 @@
           $button.attr("disabled", false);
         });
       });
-
-      $("#advanced").click(function(e) {
-        if ($(this).attr("data-visible")) {
-          $(this).attr("data-visible", "");
-          $(this).html("advanced &raquo;");
-          $("#advanced-container").css({display:"none"});
-        } else {
-          $(this).attr("data-visible", true);
-          $(this).html("advanced &laquo;");
-          $("#advanced-container").css({display:"inline"});
-        }
-      });
+    
+      $("#advanced").click(toggleAdvanced);
 
       $("#name").focus(function(e) {
         $(this).attr("placeholder", "query:name");
