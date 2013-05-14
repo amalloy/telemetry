@@ -68,9 +68,10 @@
         var $button = $(this);
         $button.attr("disabled", true);
         Teleturn.addQuery({
-          name:  $("#name").val(),
-          type:  $("#type").val(),
-          query: $("#query").val(),
+          name:        $("#name").val(),
+          target:      $("#target").val(),
+          type:        $("#type").val(),
+          query:       $("#query").val(),
           replaySince: $("#replay-since").val()
         }, function(d) {
           $button.attr("disabled", false);
