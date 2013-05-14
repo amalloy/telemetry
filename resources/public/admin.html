@@ -26,7 +26,7 @@
     };
 
     Teleturn.addTree(".queries");
-    
+
     function selectTree() {
       var type = $("#type").val();
       window.location.hash = "#" + type;
@@ -77,6 +77,18 @@
         });
       });
 
+      $("#advanced").click(function(e) {
+        if ($(this).attr("data-visible")) {
+          $(this).attr("data-visible", "");
+          $(this).html("advanced +");
+          $("#advanced-container").css({display:"none"});
+        } else {
+          $(this).attr("data-visible", true);
+          $(this).html("advanced -");
+          $("#advanced-container").css({display:"inline"});
+        }
+      });
+
       $("#name").focus(function(e) {
         $(this).attr("placeholder", "query:name");
       });
@@ -110,10 +122,11 @@
       <select id="type"></select>
       <input type="text" id="name" placeholder="name"></input>
       <textarea id="query"></textarea>
-      <div id="advanced-container" style="visibility:hidden">
+      <a href="#" id="advanced">advanced +</a>
+      <span id="advanced-container" style="display:none">
         <input type="text" id="target" placeholder="target"></input>
         <input type="date" id="replay-since" placeholder="replay since">
-      </div>
+      </span>
       <div id="buttons">
         <button type="button" id="test" class="button">Test</button>
         <button type="button" id="add" class="button">Add</button>

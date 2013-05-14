@@ -50,6 +50,12 @@ body * {
   margin-left: 10px;
 }
 
+#advanced {
+  font-size: 12px;
+  display: inline-block;
+  vertical-align: top;
+}
+
 .nvd3 table tr:first-child {
   display: none;
 }
