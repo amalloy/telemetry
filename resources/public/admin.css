@@ -8,14 +8,14 @@ body * {
 }
 
 #add-container {
-  width: 42%;
+  width: 49%;
   height: 300px;
   float: left;
 }
 
 #staging-container {
   float: right;
-  width: 55%;
+  width: 49%;
 }
 
 .queries {
@@ -46,7 +46,7 @@ body * {
 }
 
 #name {
-  width: 50%;
+  width: 60%;
   margin-left: 10px;
 }
 
