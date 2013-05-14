@@ -3,7 +3,6 @@
   (:require
    [clojure.string :as str]
    [clojure.java.io :as io]
-   [swank.swank :as swank]
    (lamina [core :as lamina]
            [connections :as connection]
            [query :as query]
@@ -368,9 +367,6 @@
                  (Long/parseLong period)
                  default-aggregation-period)
         read-schema #(io/reader "/opt/graphite/conf/storage-schemas.conf")]
-    (let [host "localhost" port 4005]
-      (printf "Starting swank on %s:%d\n" host port)
-      (swank/start-server :host host :port port))
     (def server (init {:period period, :config-path "config.clj"
                        :modules [{:init graphite/init
                                   :options {:host "localhost" :port 2003
