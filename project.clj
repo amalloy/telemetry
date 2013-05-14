@@ -1,5 +1,5 @@
 (defproject org.flatland/telemetry "0.2.0-SNAPSHOT"
-  :description "data from a distance"
+  :description "Data from a distance."
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
