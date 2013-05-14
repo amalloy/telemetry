@@ -103,29 +103,14 @@
     
       $("#advanced").click(toggleAdvanced);
 
-      $("#name").focus(function(e) {
-        $(this).attr("placeholder", "query:name");
-      });
+      $("#name").focus(function(e) { $(this).attr("placeholder", "query:name") });
+      $("#name").blur(function(e)  { $(this).attr("placeholder", "name")       });
 
-      $("#name").blur(function(e) {
-        $(this).attr("placeholder", "name");
-      });
+      $("#target").focus(function(e) { $(this).attr("placeholder", $("#name").val() || "target:name") });
+      $("#target").blur(function(e)  { $(this).attr("placeholder", "target")                          });
 
-      $("#target").focus(function(e) {
-        $(this).attr("placeholder", $("#name").val() || "target:name");
-      });
-
-      $("#target").blur(function(e) {
-        $(this).attr("placeholder", "target");
-      });
-
-      $("#replay-since").focus(function(e) {
-        $(this).attr("placeholder", "yyyy-mm-dd");
-      });
-
-      $("#replay-since").blur(function(e) {
-        $(this).attr("placeholder", "replay since");
-      });
+      $("#replay-since").focus(function(e) { $(this).attr("placeholder", "yyyy-mm-dd")   });
+      $("#replay-since").blur(function(e)  { $(this).attr("placeholder", "replay since") });
     });
   </script>
 </head>
