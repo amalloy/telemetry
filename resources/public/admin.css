@@ -50,6 +50,11 @@ body * {
   margin-left: 10px;
 }
 
+#target {
+  width: 30%;
+  margin-left: 10px;
+}
+
 #advanced {
   font-size: 12px;
   display: inline-block;

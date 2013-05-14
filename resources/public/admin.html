@@ -80,11 +80,11 @@
       $("#advanced").click(function(e) {
         if ($(this).attr("data-visible")) {
           $(this).attr("data-visible", "");
-          $(this).html("advanced +");
+          $(this).html("advanced &raquo;");
           $("#advanced-container").css({display:"none"});
         } else {
           $(this).attr("data-visible", true);
-          $(this).html("advanced -");
+          $(this).html("advanced &laquo;");
           $("#advanced-container").css({display:"inline"});
         }
       });
@@ -122,10 +122,10 @@
       <select id="type"></select>
       <input type="text" id="name" placeholder="name"></input>
       <textarea id="query"></textarea>
-      <a href="#" id="advanced">advanced +</a>
+      <a href="#" id="advanced">advanced &raquo;</a>
       <span id="advanced-container" style="display:none">
-        <input type="text" id="target" placeholder="target"></input>
         <input type="date" id="replay-since" placeholder="replay since">
+        <input type="text" id="target" placeholder="target"></input>
       </span>
       <div id="buttons">
         <button type="button" id="test" class="button">Test</button>
