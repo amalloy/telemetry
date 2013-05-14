@@ -70,6 +70,10 @@ body * {
   display: none;
 }
 
-.nvd3 table tr td:nth-child(3) {
+.nvd3 table tr td {
   font-family: monospace;
+}
+
+.action {
+  font-family: sans-serif;
 }
