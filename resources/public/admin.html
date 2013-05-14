@@ -76,6 +76,30 @@
           $button.attr("disabled", false);
         });
       });
+
+      $("#name").focus(function(e) {
+        $(this).attr("placeholder", "query:name");
+      });
+
+      $("#name").blur(function(e) {
+        $(this).attr("placeholder", "name");
+      });
+
+      $("#target").focus(function(e) {
+        $(this).attr("placeholder", $("#name").val() || "target:name");
+      });
+
+      $("#target").blur(function(e) {
+        $(this).attr("placeholder", "target");
+      });
+
+      $("#replay-since").focus(function(e) {
+        $(this).attr("placeholder", "yyyy-mm-dd");
+      });
+
+      $("#replay-since").blur(function(e) {
+        $(this).attr("placeholder", "replay since");
+      });
     });
   </script>
 </head>
@@ -84,10 +108,12 @@
   <div id="add-container">
     <form>
       <select id="type"></select>
-      <input type="text" id="name" placeholder="a:query:name"></input>
+      <input type="text" id="name" placeholder="name"></input>
       <textarea id="query"></textarea>
-      Replay Since
-      <input type="date" id="replay-since" placeholder="yyyy-mm-dd">
+      <div id="advanced-container" style="visibility:hidden">
+        <input type="text" id="target" placeholder="target"></input>
+        <input type="date" id="replay-since" placeholder="replay since">
+      </div>
       <div id="buttons">
         <button type="button" id="test" class="button">Test</button>
         <button type="button" id="add" class="button">Add</button>
