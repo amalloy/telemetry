@@ -42,12 +42,12 @@ body * {
 
 #replay-since {
   width: 140px;
-  margin-left: 20px;
+  margin-left: 10px;
 }
 
 #name {
   width: 50%;
-  margin-left: 20px;
+  margin-left: 10px;
 }
 
 .nvd3 table tr:first-child {
