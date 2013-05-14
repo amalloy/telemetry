@@ -148,7 +148,7 @@
                (alter (:queries config)
                       assoc-in [type label]
                       (keyed [query channel target unsubscribe])))
-              (listen channel target)
+              (listen channel (or (not-empty target) label))
               {:status 200
                :body response-channel}))
           {:status 400 :content-type "text/plain"
@@ -282,8 +282,8 @@
   "Builds a telemetry ring handler from a config map."
   [config]
   (let [writers (routes (POST "/add-query" [type name target query replay-since]
-                          (add-query config (keyword type) name
-                                     (or (not-empty target) name) query
+                          (add-query config
+                                     (keyword type) name (not-empty target) query
                                      (when (seq replay-since)
                                        (Long/parseLong replay-since))))
                         (POST "/remove-query" [type name]
