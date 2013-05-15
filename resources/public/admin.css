@@ -58,16 +58,19 @@ body * {
 #replay-since {
   width: 140px;
   margin-left: 10px;
+  font-family: monospace;
 }
 
 #name {
   width: 60%;
   margin-left: 10px;
+  font-family: monospace;
 }
 
 #target {
   width: 30%;
   margin-left: 10px;
+  font-family: monospace;
 }
 
 .target:before {
