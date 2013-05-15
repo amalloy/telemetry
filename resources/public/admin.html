@@ -17,8 +17,8 @@
 
   <script>
     window.Teleturn = new Teleturn({
-      server:   "telemetry-001.geni.com:1847",
-      testPath: "inspect"
+      server:  "telemetry-001.geni.com:1847",
+      runPath: "inspect"
     });
 
     Teleturn.clickQuery = function(d) {
@@ -26,6 +26,10 @@
       $("#query").val(d.opts.query);
       $("#target").val(d.opts.target);
       if (d.opts.target) showAdvanced();
+    };
+
+    Teleturn.testQuery = function(opts) {
+      startQuery(opts.query);
     };
 
     Teleturn.addTree(".queries");
@@ -56,6 +60,32 @@
       }
     };
 
+    var testXhr;
+    function startQuery(query) {
+      $("#test").html("Stop")
+      $("#inspect-query").html(query)
+      $("#inspect-status").html($("<img/>", {src:"images/spinner.gif"}));
+      $("#inspect-results").val("");
+      testXhr = Teleturn.runQuery({query: query}, function(d) {
+        $("#inspect-results").val(d).scrollTop(999999999);
+      });
+    };
+
+    function stopQuery() {
+      testXhr.abort();
+      testXhr = null;
+      $("#test").html("Test");
+      $("#inspect-status").html("");
+    };
+
+    function toggleQuery() {
+      if (testXhr) {
+        stopQuery();
+      } else {
+        startQuery($("#query").val());
+      }
+    };
+
     $(window).on("hashchange", function() {
       $("#type").val(window.location.hash.substr(1));
       selectTree();
@@ -70,23 +100,6 @@
       Teleturn.addOpts("type", "#type");
       selectTree();
 
-      var testXhr;
-      $("#test").click(function(e) {
-        if (testXhr) {
-          testXhr.abort();
-          testXhr = null;
-          $(this).html("Test")
-        } else {
-          $(this).html("Stop")
-          $("#stagingarea").val("");
-          testXhr = Teleturn.testQuery({
-            query: $("#query").val(),
-          }, function(d) {
-            $("#stagingarea").val(d).scrollTop(999999999);
-          });
-        }
-      });
-
       $("#add").click(function(e) {
         var $button = $(this);
         $button.attr("disabled", true);
@@ -100,7 +113,8 @@
           $button.attr("disabled", false);
         });
       });
-    
+
+      $("#test").click(toggleQuery);
       $("#advanced").click(toggleAdvanced);
 
       $("#name").focus(function(e) { $(this).attr("placeholder", "query:name") });
