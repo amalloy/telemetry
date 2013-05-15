@@ -41,6 +41,7 @@ body * {
 
 #inspect-query {
   color: gray;
+  white-space: pre;
   font-family: monospace;
 }
 

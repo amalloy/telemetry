@@ -62,13 +62,15 @@
 
     var testXhr;
     function startQuery(query) {
-      $("#test").html("Stop")
-      $("#inspect-query").html(query)
-      $("#inspect-status").html($("<img/>", {src:"images/spinner.gif"}));
-      $("#inspect-results").val("");
-      testXhr = Teleturn.runQuery({query: query}, function(d) {
-        $("#inspect-results").val(d).scrollTop(999999999);
-      });
+      if (query) {
+        $("#test").html("Stop")
+        $("#inspect-query").html(query)
+        $("#inspect-status").html($("<img/>", {src:"images/spinner.gif"}));
+        $("#inspect-results").val("");
+        testXhr = Teleturn.runQuery({query: query}, function(d) {
+          $("#inspect-results").val(d).scrollTop(999999999);
+        });
+      }
     };
 
     function stopQuery() {
@@ -82,7 +84,7 @@
       if (testXhr) {
         stopQuery();
       } else {
-        startQuery($("#query").val());
+        startQuery($("#query").val() || $("#inspect-query").text());
       }
     };
 
