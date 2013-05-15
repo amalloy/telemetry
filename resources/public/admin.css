@@ -13,7 +13,7 @@ body * {
   float: left;
 }
 
-#staging-container {
+#inspect-container {
   float: right;
   width: 49%;
 }
@@ -26,11 +26,26 @@ body * {
 
 #query {
   width: 100%;
-  height: 200px;
+  height: 248px;
   font-family: monospace;
 }
 
-#stagingarea {
+#inspect-identifier {
+  height: 20px;
+  margin-left: 5px;
+  margin-bottom: 5px;
+}
+
+#inspect-status {
+  float: right;
+}
+
+#inspect-query {
+  color: gray;
+  font-family: monospace;
+}
+
+#inspect-results {
   width: 100%;
   height: 300px;
   font-family: monospace;
