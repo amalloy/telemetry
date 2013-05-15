@@ -64,7 +64,7 @@
     (lamina/concat*
      (op/bridge-accumulate ch result "within-window"
        {:accumulator (fn [x]
-                       (let [[this-id this-action] (map #(% x) [get-id get-action])]
+                       (let [[this-id this-action] ((juxt get-id get-action) x)]
                          (dosync
                           (let [present? (contains? @watch-list this-id)
                                 trigger? (= trigger (name this-action))]
