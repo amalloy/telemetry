@@ -81,8 +81,8 @@ body * {
   vertical-align: top;
 }
 
-.queries {
-  margin-top: 20px;
+#query-tree {
+  margin-top: 30px;
   float: left;
   width: 100%;
 }
