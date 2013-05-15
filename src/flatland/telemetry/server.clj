@@ -1,7 +1,7 @@
 (ns flatland.telemetry.server
   (:use [ring.middleware params keyword-params format-params format-response])
   (:require
-   [clojure.string :as str]
+   [clojure.string :as s]
    [clojure.java.io :as io]
    (lamina [core :as lamina]
            [connections :as connection]
@@ -266,8 +266,8 @@
 
                        (lamina/on-error (fn [e] (log-event :error))))
                      (lamina/map* (fn [line]
-                                    (let [[probe data] (str/split line #" " 2)]
-                                      [(str/replace probe #"\." ":")
+                                    (let [[probe data] (s/split line #" " 2)]
+                                      [(s/replace probe #"\." ":")
                                        (parse-json address probe data)]))))]
         (log-event :connect)
         (send clients update-in [:channels] assoc client-id ch)
