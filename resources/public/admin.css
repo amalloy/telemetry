@@ -55,6 +55,10 @@ body * {
   float: right;
 }
 
+#type {
+  font-family: monospace;
+}
+
 #replay-since {
   width: 140px;
   margin-left: 10px;
