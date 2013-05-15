@@ -4,6 +4,7 @@
 <head>
   <link rel="stylesheet" type="text/css" href="lib/nv.d3.css">
   <link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.min.css">
+  <link rel="stylesheet" type="text/css" href="src/teleturn.css">
   <link rel="stylesheet" type="text/css" href="admin.css">
 
   <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
@@ -95,23 +96,11 @@
       }
     };
 
-    function resizeQueryTree() {
-      $("#query-tree").css({height: $("body").innerHeight() - $("#add-container").outerHeight()})
-    };
-
     $(window).on("hashchange", function() {
       selectTree(window.location.hash.substr(1));
     });
 
     $(document).ready(function() {
-      resizeQueryTree();
-
-      var resizeTimeout;
-      $(window).resize(function() {
-        if (resizeTimeout) clearTimeout(resizeTimout);
-        resizeTimout = setTimeout(resizeQueryTree, 50);
-      });
-
       $("#type").change(function(e) {
         selectTree($(this).val());
       });
