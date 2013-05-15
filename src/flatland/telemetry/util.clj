@@ -60,9 +60,7 @@
         expiries (ref (sorted-map))
         conj (fnil conj [])
         [get-id get-action] (map q/getter [id action])
-        trigger (name trigger)
-        report (fn [this-id actions]
-                 (enqueue result {id this-id, :actions actions}))]
+        trigger (name trigger)]
     (lamina/concat*
      (op/bridge-accumulate ch result "within-window"
        {:accumulator (fn [x]
