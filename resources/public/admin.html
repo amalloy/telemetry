@@ -43,7 +43,7 @@
     function hideAdvanced() {
       $("#advanced").attr("data-visible", "");
       $("#advanced").html("advanced &raquo;");
-      $("#advanced-container").css({display:"none"});
+      $("#advanced-container").hide();
     };
 
     function showAdvanced() {
@@ -64,11 +64,14 @@
     var testXhr;
     function startQuery(query) {
       if (query) {
+        var count = 0;
         $("#test").html("Stop")
         $("#inspect-query").html(query)
-        $("#inspect-status").html($("<img/>", {src:"images/spinner.gif"}));
+        $("#inspect-progress").removeAttr("value").css({opacity: 1});
         $("#inspect-results").val("");
         testXhr = Teleturn.runQuery({query: query}, function(d) {
+          count = (count + 1) % 100;
+          $("#inspect-progress").attr({value: count});
           $("#inspect-results").val(d).scrollTop(999999999);
         });
       }
@@ -78,7 +81,10 @@
       testXhr.abort();
       testXhr = null;
       $("#test").html("Test");
-      $("#inspect-status").html("");
+      $("#inspect-progress").css({opacity: 0.3})
+      setTimeout(function() {
+        $("#inspect-progress").attr({value: 0});
+      }, 100);
     };
 
     function toggleQuery() {
@@ -160,8 +166,8 @@
     </form>
   </div>
   <div id="inspect-container">
-    <div id="inspect-query" class="ellipsis"></div>
-    <div id="inspect-status"></div>
+    <span id="inspect-query" class="ellipsis"></span>
+    <progress id="inspect-progress" value="" max="100" style="opacity:0.3"></progress>
     <textarea id="inspect-results" disabled="disabled"></textarea>
   </div>
   <div id="query-tree">

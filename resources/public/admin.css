@@ -29,10 +29,10 @@ body * {
   width: 49%;
 }
 
-#inspect-status {
+#inspect-progress {
   float: right;
-  height: 20px;
-  margin: 0px 5px 5px;
+  margin: 5px;
+  -webkit-transition: all 200ms;
 }
 
 .ellipsis {
@@ -43,7 +43,7 @@ body * {
 
 #inspect-query {
   float: left;
-  width: 85%;
+  height: 20px;
   margin: 0px 5px 5px;
   color: gray;
   font-family: monospace;
