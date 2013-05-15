@@ -34,8 +34,8 @@
 
     Teleturn.addTree(".queries");
 
-    function selectTree() {
-      var type = $("#type").val();
+    function selectTree(type) {
+      $("#type").val(type);
       window.location.hash = "#" + type;
       Teleturn.selectTree(type);
     };
@@ -87,18 +87,16 @@
     };
 
     $(window).on("hashchange", function() {
-      $("#type").val(window.location.hash.substr(1));
-      selectTree();
+      selectTree(window.location.hash.substr(1));
     });
 
     $(document).ready(function() {
       $("#type").change(function(e) {
-        window.location.hash = "#" + $(this).val();
-        selectTree();
+        selectTree($(this).val());
       });
 
       Teleturn.addOpts("type", "#type");
-      selectTree();
+      selectTree(window.location.hash.substr(1) || "phonograph");
 
       $("#add").click(function(e) {
         var $button = $(this);
