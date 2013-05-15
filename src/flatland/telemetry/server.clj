@@ -208,6 +208,14 @@
     (or (handler req)
         {:status 404})))
 
+(defn try-adding-html [handler]
+  (fn [req]
+    (or (handler req)
+        (handler (update-in req [:uri]
+                            #(-> %
+                                 (s/replace #"/$" "")
+                                 (str ".html")))))))
+
 (defn module-routes
   "Constructs routes for delegating to installed modules.
    A module named foo will be in charge of handling any request under /foo.
@@ -300,7 +308,7 @@
     (-> (routes (wrap-saving-queries writers config)
                 readers
                 (module-routes config)
-                (resources "/"))
+                (try-adding-html (resources "/")))
         wrap-keyword-params
         wrap-params
         wrap-json-params
