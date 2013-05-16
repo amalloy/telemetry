@@ -17,28 +17,28 @@
   <script src="/telemetry/config.js"></script>
 
   <script>
-    window.Teleturn = new Teleturn({
+    window.teleturn = new Teleturn({
       baseUrl: telemetryBaseUrl,
       runPath: "inspect"
     });
 
-    Teleturn.clickQuery = function(d) {
+    teleturn.clickQuery = function(d) {
       $("#name").val(d.opts.name);
       $("#query").val(d.opts.query);
       $("#target").val(d.opts.target);
       if (d.opts.target) showAdvanced();
     };
 
-    Teleturn.testQuery = function(opts) {
+    teleturn.testQuery = function(opts) {
       startQuery(opts.query);
     };
 
-    Teleturn.addTree("#query-tree");
+    teleturn.addTree("#query-tree");
 
     function selectTree(type) {
       $("#type").val(type);
       window.location.hash = "#" + type;
-      Teleturn.selectTree(type);
+      teleturn.selectTree(type);
     };
 
     function hideAdvanced() {
@@ -70,7 +70,7 @@
         $("#inspect-query").html(query)
         $("#inspect-progress").removeAttr("value").css({opacity: 1});
         $("#inspect-results").val("");
-        testXhr = Teleturn.runQuery({query: query}, function(d) {
+        testXhr = teleturn.runQuery({query: query}, function(d) {
           count = (count + 1) % 100;
           $("#inspect-progress").attr({value: count});
           $("#inspect-results").val(d).scrollTop(999999999);
@@ -105,13 +105,13 @@
         selectTree($(this).val());
       });
 
-      Teleturn.addOpts("type", "#type");
+      teleturn.addOpts("type", "#type");
       selectTree(window.location.hash.substr(1) || "phonograph");
 
       $("#add").click(function(e) {
         var $button = $(this);
         $button.attr("disabled", true);
-        Teleturn.addQuery({
+        teleturn.addQuery({
           name:        $("#name").val(),
           target:      $("#target").val(),
           type:        $("#type").val(),
