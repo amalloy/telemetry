@@ -1,6 +1,0 @@
-[submodule "modules/telegraph"]
-	path = modules/telegraph
-	url = git@github.com:flatland/telegraph.git
-[submodule "modules/teleturn"]
-	path = modules/teleturn
-	url = git@github.com:flatland/teleturn
