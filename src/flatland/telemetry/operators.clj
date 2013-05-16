@@ -6,14 +6,16 @@
             [lamina.query.core :refer [def-query-operator def-query-comparator]]
             [flatland.useful.utils :refer [returning]]))
 
-(defn within-window-op [trigger {:keys [id action window q period]
+(defn within-window-op [trigger {:keys [id action window task-queue period]
                                  :or {id :id, action :action,
-                                      window (t/hours 1) q (t/task-queue) period (t/period)}}
+                                      window (t/hours 1) period (t/period)
+                                      task-queue (t/task-queue)}}
                         ch]
   (let [result (channel)
         watch-list (ref {})
         expiries (ref (sorted-map))
         conj (fnil conj [])
+        now #(t/now task-queue)
         [get-id get-action] (map q/getter [id action])
         trigger (name trigger)]
     (lamina/concat*
@@ -27,19 +29,19 @@
                               (alter watch-list update-in [this-id]
                                      conj this-action))
                             (when (and trigger? (not present?))
-                              (alter expiries update-in [(+ (t/now q) window)]
+                              (alter expiries update-in [(+ (now) window)]
                                      conj this-id))))))
         :emitter (fn []
                    (dosync
                     (let [watches @watch-list
-                          expired (subseq @expiries <= (t/now q))
+                          expired (subseq @expiries <= (now))
                           ids (mapcat val expired)]
                       (alter expiries #(apply dissoc % (map key expired)))
                       (alter watch-list #(apply dissoc % ids))
                       (for [id ids]
                         {:id id, :actions (get watches id)}))))
         :period period
-        :task-queue q}))))
+        :task-queue task-queue}))))
 
 (def-query-operator within-window
   :periodic? true
