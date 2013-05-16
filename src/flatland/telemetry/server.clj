@@ -377,12 +377,8 @@
                  default-aggregation-period)
         read-schema #(io/reader "/opt/graphite/conf/storage-schemas.conf")]
     (def server (init {:period period, :config-path "config.clj"
-                       :modules [{:init graphite/init
-                                  :options {:host "localhost" :port 2003
-                                            :config-reader read-schema
-                                            :storage-path "/opt/graphite/storage/whisper"}}
-                                 {:init phonograph/init
+                       :modules [{:init phonograph/init
                                   :options {:base-path "./storage/phonograph"}}
                                  {:init cassette/init
                                   :options {:base-path "./storage/cassette"}}]
-                       :module-order [:graphite :phonograph :cassette]}))))
+                       :module-order [:phonograph :cassette]}))))
