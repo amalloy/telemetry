@@ -55,3 +55,47 @@
                   (q/getter field))
           pred #{value}]
       #(some pred (f %)))))
+
+
+(defn reduce-and-emit [name f emit]
+  (fn [{:keys [options]}
+       ch]
+    (let [{:keys [period task-queue] :or {period (t/period), task-queue (t/task-queue)}}
+          options]
+      (let [empty (Object.)
+            acc (ref empty)
+            f (fn [acc x]
+                (if (identical? acc empty)
+                  (f x)
+                  (f acc x)))]
+        (lamina/concat*
+         (op/bridge-accumulate ch (channel) name
+                               {:accumulator (fn [x]
+                                               (dosync (alter acc f x)))
+                                :emitter (fn []
+                                           (dosync (let [value @acc]
+                                                     (ref-set acc empty)
+                                                     (when-not (identical? value empty)
+                                                       [(emit value)]))))
+                                :period period, }))))))
+
+(def-query-operator max
+  :periodic? true
+  :distribute? true
+  :transform (reduce-and-emit "max" max identity))
+
+(def-query-operator min
+  :periodic? true
+  :distribute? true
+  :transform (reduce-and-emit "min" min identity))
+
+(def-query-operator mean
+  :periodic? true
+  :distribute? false
+  :transform (reduce-and-emit "mean" (fn
+                                       ([x]
+                                          {:count 1 :sum x})
+                                       ([{:keys [count sum]} y]
+                                          {:count (inc count) :sum (+ sum y)}))
+                              (fn [{:keys [count sum]}]
+                                (/ sum count))))
