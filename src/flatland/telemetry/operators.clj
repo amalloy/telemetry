@@ -6,9 +6,9 @@
             [lamina.query.core :refer [def-query-operator]]
             [flatland.useful.utils :refer [returning]]))
 
-(defn within-window-op [{:keys [id action trigger window q period]
-                         :or {id :id, action :action,
-                              window (t/hours 1) q (t/task-queue) period (t/period)}}
+(defn within-window-op [trigger {:keys [id action window q period]
+                                 :or {id :id, action :action,
+                                      window (t/hours 1) q (t/task-queue) period (t/period)}}
                         ch]
   (let [result (channel)
         watch-list (ref {})
@@ -45,4 +45,4 @@
   :periodic? true
   :distribute? false
   :transform (fn [{:keys [options]} ch]
-               (within-window-op options ch)))
+               (within-window-op (get options 0) (dissoc options 0) ch)))
