@@ -14,10 +14,11 @@
 
   <script src="/teleturn/lib/nv.d3.js"></script>
   <script src="/teleturn/teleturn.js"></script>
+  <script src="/telemetry/config.js"></script>
 
   <script>
     window.Teleturn = new Teleturn({
-      server:  "telemetry-001.geni.com:1847",
+      baseUrl: telemetryBaseUrl,
       runPath: "inspect"
     });
 
