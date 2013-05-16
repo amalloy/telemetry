@@ -3,7 +3,7 @@
             [lamina.core :as lamina :refer [channel enqueue receive-all enqueue-and-close]]
             [lamina.core.operators :as op]
             [lamina.query.operators :as q]
-            [lamina.query.core :refer [def-query-operator]]
+            [lamina.query.core :refer [def-query-operator def-query-comparator]]
             [flatland.useful.utils :refer [returning]]))
 
 (defn within-window-op [trigger {:keys [id action window q period]
@@ -46,3 +46,10 @@
   :distribute? false
   :transform (fn [{:keys [options]} ch]
                (within-window-op (get options 0) (dissoc options 0) ch)))
+
+(def-query-comparator contains
+  (fn [field value]
+    (let [f (comp (partial map q/normalize-for-comparison)
+                  (q/getter field))
+          pred #{value}]
+      #(some pred (f %)))))
