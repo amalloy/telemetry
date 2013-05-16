@@ -209,13 +209,16 @@
     (or (handler req)
         {:status 404})))
 
-(defn try-adding-html [handler]
-  (fn [req]
-    (or (handler req)
-        (handler (update-in req [:uri]
-                            #(-> %
-                                 (s/replace #"/$" "")
-                                 (str ".html")))))))
+(defn index-html [handler paths]
+  (let [paths (into {}
+                    (for [path paths]
+                      [(s/replace path #"/?$" "")
+                       (s/replace path #"/?$" "/index.html")]))]
+    (fn [req]
+      (handler (update-in req [:uri]
+                          (fn [uri]
+                            (get paths (s/replace uri #"/$" "")
+                                 uri)))))))
 
 (defn module-routes
   "Constructs routes for delegating to installed modules.
@@ -309,7 +312,8 @@
     (-> (routes (wrap-saving-queries writers config)
                 readers
                 (module-routes config)
-                (try-adding-html (resources "/")))
+                (-> (resources "/")
+                    (index-html #{"/telemetry"})))
         wrap-keyword-params
         wrap-params
         wrap-json-params
