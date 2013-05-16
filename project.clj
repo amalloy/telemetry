@@ -12,4 +12,7 @@
                  [org.flatland/phonograph "0.1.4"]
                  [ring-middleware-format "0.2.4" :exclusions [ring]]
                  [org.flatland/cassette "0.2.5"]]
+  :classifiers {:admin {:dependencies []
+                        :omit-source true
+                        :compile-path "target/empty"}}
   :main flatland.telemetry)
