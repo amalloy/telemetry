@@ -3,8 +3,8 @@
 
 <head>
   <link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.min.css">
-  <link rel="stylesheet" type="text/css" href="/teleturn/lib/nv.d3.css">
-  <link rel="stylesheet" type="text/css" href="/teleturn/teleturn.css">
+  <link rel="stylesheet" type="text/css" href="/telegraph/lib/nv.d3.css">
+  <link rel="stylesheet" type="text/css" href="/telegraph/admin.css">
   <link rel="stylesheet" type="text/css" href="/telemetry/style.css">
 
   <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
@@ -12,33 +12,33 @@
   <script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
   <script src="http://cdnjs.cloudflare.com/ajax/libs/d3/2.10.0/d3.v2.js"></script>
 
-  <script src="/teleturn/lib/nv.d3.js"></script>
-  <script src="/teleturn/teleturn.js"></script>
+  <script src="/telegraph/lib/nv.d3.js"></script>
+  <script src="/telegraph/admin.js"></script>
   <script src="/telemetry/config.js"></script>
 
   <script>
-    window.teleturn = new Teleturn({
+    window.admin = new Admin({
       baseUrl: telemetryBaseUrl,
       runPath: "inspect"
     });
 
-    teleturn.clickQuery = function(d) {
+    admin.clickQuery = function(d) {
       $("#name").val(d.opts.name);
       $("#query").val(d.opts.query);
       $("#target").val(d.opts.target);
       if (d.opts.target) showAdvanced();
     };
 
-    teleturn.testQuery = function(opts) {
+    admin.testQuery = function(opts) {
       startQuery(opts.query);
     };
 
-    teleturn.addTree("#query-tree");
+    admin.addTree("#query-tree");
 
     function selectTree(type) {
       $("#type").val(type);
       window.location.hash = "#" + type;
-      teleturn.selectTree(type);
+      admin.selectTree(type);
     };
 
     function hideAdvanced() {
@@ -70,7 +70,7 @@
         $("#inspect-query").html(query)
         $("#inspect-progress").removeAttr("value").css({opacity: 1});
         $("#inspect-results").val("");
-        testXhr = teleturn.runQuery({query: query}, function(d) {
+        testXhr = admin.runQuery({query: query}, function(d) {
           count = (count + 1) % 100;
           $("#inspect-progress").attr({value: count});
           $("#inspect-results").val(d).scrollTop(999999999);
@@ -105,13 +105,13 @@
         selectTree($(this).val());
       });
 
-      teleturn.addOpts("type", "#type");
+      admin.addOpts("type", "#type");
       selectTree(window.location.hash.substr(1) || "phonograph");
 
       $("#add").click(function(e) {
         var $button = $(this);
         $button.attr("disabled", true);
-        teleturn.addQuery({
+        admin.addQuery({
           name:        $("#name").val(),
           target:      $("#target").val(),
           type:        $("#type").val(),
