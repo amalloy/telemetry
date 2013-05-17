@@ -1,4 +1,4 @@
-(defproject org.flatland/telemetry "0.2.0-SNAPSHOT"
+(defproject org.flatland/telemetry "0.2.0-RC6"
   :description "Data from a distance."
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
@@ -13,9 +13,9 @@
                  [org.flatland/phonograph "0.1.4"]
                  [ring-middleware-format "0.2.4" :exclusions [ring]]
                  [org.flatland/cassette "0.2.5"]
-                 [org.flatland/telegraph "0.2.0-SNAPSHOT" :classifier "resources"]]
+                 [org.flatland/telegraph "0.1.3" :classifier "resources"]]
   :classifiers {:admin
-                {:dependencies [[org.flatland/telegraph "0.2.0-SNAPSHOT" :classifier "resources"]]
+                {:dependencies [[org.flatland/telegraph "0.1.3" :classifier "resources"]]
                  :omit-source true
                  :compile-path "target/empty"}}
   :main flatland.telemetry)
