@@ -15,6 +15,7 @@
           [tcp :as tcp])
    [compojure.core :refer [routes GET POST ANY context]]
    [compojure.route :refer [resources]]
+   [noir.util.middleware :refer [wrap-rewrites]]
    [flatland.useful.utils :refer [returning]]
    [flatland.useful.map :refer [update keyed map-vals ordering-map]]
    [flatland.telemetry.util :refer [unix-time from-unix-time]]
@@ -209,17 +210,6 @@
     (or (handler req)
         {:status 404})))
 
-(defn index-html [handler paths]
-  (let [paths (into {}
-                    (for [path paths]
-                      [(s/replace path #"/?$" "")
-                       (s/replace path #"/?$" "/index.html")]))]
-    (fn [req]
-      (handler (update-in req [:uri]
-                          (fn [uri]
-                            (get paths (s/replace uri #"/$" "")
-                                 uri)))))))
-
 (defn module-routes
   "Constructs routes for delegating to installed modules.
    A module named foo will be in charge of handling any request under /foo.
@@ -313,7 +303,7 @@
                 readers
                 (module-routes config)
                 (-> (resources "/")
-                    (index-html #{"/telemetry"})))
+                    (wrap-rewrites #"^/telemetry/?$" "/telemetry/index.html")))
         wrap-keyword-params
         wrap-params
         wrap-json-params

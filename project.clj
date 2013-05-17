@@ -7,6 +7,7 @@
                  [lamina "0.5.0-rc2"]
                  [compojure "1.1.1"]
                  [me.raynes/fs "1.4.2"]
+                 [lib-noir "0.5.5"]
                  [cheshire "5.1.1"]
                  [org.flatland/useful "0.9.4"]
                  [org.flatland/phonograph "0.1.4"]
