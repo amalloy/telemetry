@@ -132,27 +132,27 @@ into the time-unit representation that telemetry uses."
                                                                         from until))})))]
                    [value (/ timestamp 1000)])})) ;; render API expects [value time] tuples
 
-(defn absolute-time [t ref]
-  (if (neg? t)
-    (+ ref t)
-    t))
+(defn parse-interval [^String s]
+  (let [[sign s] (if (.startsWith s "-")
+                   [- (subs s 1)]
+                   [+ s])]
+    (long (sign (lamina.query.struct/parse-time-interval s)))))
 
 (defn handler [open]
-  (GET "/render" [target from until]
+  (GET "/render" [target from until shift]
     (let [targets (if (coll? target) ; if there's only one target it's a string, but if multiple are
                     target           ; specified then compojure will make a list of them
                     [target])
-          now (Date.)
+          offset (or (and (seq shift)
+                          (parse-interval shift))
+                     0)
+          now (Date. (+ offset (.getTime (Date.))))
           now-ms (.getTime now)
           [from until] (for [[timespec default] [[from (subtract-day now)]
                                                  [until now]]]
                          (unix-time
                           (if (seq timespec)
-                            (let [diff (-> timespec
-                                           (s/replace "-" "")
-                                           (lamina.query.struct/parse-time-interval)
-                                           (long))]
-                              (Date. (- now-ms diff)))
+                            (Date. (+ now-ms (parse-interval timespec)))
                             default)))]
       (if-let [result (points open targets from until)]
         {:status 200
