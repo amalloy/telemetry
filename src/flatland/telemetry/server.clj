@@ -92,7 +92,8 @@
       {:status 404})))
 
 (defn replay [config query period start-time]
-  (let [replayer (some :replay (vals (:modules config)))
+  (let [query (str "&" query)
+        replayer (some :replay (vals (:modules config)))
         data-seq (-> (query/query-seqs
                       {query nil} ;; lamina wants millisecond timestamps
                       {:timestamp #(* 1000 (:timestamp %)) :payload identity :period period
