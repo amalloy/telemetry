@@ -16,7 +16,7 @@
    [compojure.core :refer [routes GET POST ANY context]]
    [compojure.route :refer [resources]]
    [noir.util.middleware :refer [wrap-rewrites]]
-   [flatland.useful.utils :refer [returning]]
+   [flatland.useful.utils :refer [returning thread-local]]
    [flatland.useful.map :refer [update keyed map-vals ordering-map]]
    [flatland.telemetry.util :refer [unix-time from-unix-time]]
    [flatland.telemetry.operators] ; defines stuff in lamina's query parser, not clojure functions
@@ -24,7 +24,8 @@
    [flatland.telemetry.phonograph :as phonograph]
    [flatland.telemetry.cassette :as cassette])
   (:import (java.io StringReader BufferedReader IOException)
-           (java.util Date))
+           (java.util Date)
+           (java.text SimpleDateFormat))
   (:use flatland.useful.debug))
 
 (def default-tcp-port
@@ -43,6 +44,10 @@
 (def default-aggregation-period
   "Number of milliseconds lamina should buffer up periodic data before flushing."
   30000)
+
+(let [formatter (thread-local (SimpleDateFormat. "yyyy-MM-dd HH:mm"))]
+  (defn format-date-progress [date]
+    (.format @formatter date)))
 
 (defn subscribe
   "Subscribe to the given trace descriptor, returning a channel of the resuts. Sets the
@@ -107,7 +112,9 @@
     (-> old-channel
         (->> (lamina/sample-every {:period 5000})
              (lamina/map* (fn [{:keys [timestamp]}]
-                            (str @message-count " " (from-unix-time timestamp) "\n"))))
+                            (str @message-count " "
+                                 (format-date-progress (from-unix-time timestamp))
+                                 "\n"))))
         (lamina/join response-channel))
     (lamina/siphon old-channel combined)
     (lamina/on-drained old-channel
