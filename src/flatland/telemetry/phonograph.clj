@@ -120,7 +120,7 @@ into the time-unit representation that telemetry uses."
                              (range from until density)
                              values))))
 
-(defn points [open targets from until]
+(defn points [open targets from until offset]
   (for [target targets]
     {:target target
      :datapoints (for [{:keys [timestamp value]}
@@ -130,7 +130,9 @@ into the time-unit representation that telemetry uses."
                                        :seq-generator (fn [pattern]
                                                         (phonograph-seq open pattern
                                                                         from until))})))]
-                   [value (/ timestamp 1000)])})) ;; render API expects [value time] tuples
+                   [value (-> timestamp ;; render API expects [value time] tuples
+                              (- offset)
+                              (/ 1000))])}))
 
 (defn parse-interval [^String s]
   (let [[sign s] (if (.startsWith s "-")
@@ -154,7 +156,7 @@ into the time-unit representation that telemetry uses."
                           (if (seq timespec)
                             (Date. (+ now-ms (parse-interval timespec)))
                             default)))]
-      (if-let [result (points open targets from until)]
+      (if-let [result (points open targets from until offset)]
         {:status 200
          :headers {"Content-Type" "application/json"}
          :body (formats/encode-json->string result)}
