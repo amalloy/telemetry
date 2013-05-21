@@ -89,12 +89,13 @@
 (defn replay [config query period start-time]
   (let [replayer (some :replay (vals (:modules config)))
         data-seq (-> (query/query-seqs
-                      {query nil}
+                      {query nil} ;; lamina wants millisecond timestamps
                       {:timestamp #(* 1000 (:timestamp %)) :payload identity :period period
                        :seq-generator (fn [pattern]
                                         (replayer {:pattern pattern :start-time start-time}))})
                      (get query))]
-    data-seq))
+    (for [point data-seq] ;; convert back to seconds for the rest of telemetry
+      (update-in point [:timestamp] / 1000))))
 
 (defn stitch-replay [live-channel old-seq response-channel]
   (let [[old-channel combined] (repeatedly lamina/channel)
