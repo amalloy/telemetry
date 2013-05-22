@@ -69,11 +69,11 @@
         $("#test").html("Stop")
         $("#inspect-query").html(query)
         $("#inspect-progress").removeAttr("value").css({opacity: 1});
-        $("#inspect-results").val("");
+        $("#inspect-results").text("");
         testXhr = admin.runQuery({query: query}, function(d) {
           count = (count + 1) % 100;
           $("#inspect-progress").attr({value: count});
-          $("#inspect-results").val(d).scrollTop(999999999);
+          $("#inspect-results").text(d).scrollTop(999999999);
         });
       }
     };
@@ -157,7 +157,7 @@
   <div id="inspect-container">
     <span id="inspect-query" class="ellipsis inspect-header"></span>
     <progress id="inspect-progress" value="" max="100" style="opacity:0.3"></progress>
-    <textarea id="inspect-results" disabled="disabled"></textarea>
+    <pre id="inspect-results"></pre>
   </div>
   <div id="query-tree">
   </div>

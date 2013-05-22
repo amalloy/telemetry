@@ -14,7 +14,7 @@
                  [org.flatland/phonograph "0.1.4"]
                  [ring-middleware-format "0.2.4" :exclusions [ring]]
                  [org.flatland/cassette "0.2.5"]
-                 [org.flatland/telegraph "0.1.3" :classifier "resources"]]
+                 [org.flatland/telegraph "0.1.5-SNAPSHOT" :classifier "resources"]]
   :classifiers {:admin
                 {:dependencies [[org.flatland/telegraph "0.1.3" :classifier "resources"]]
                  :omit-source true
