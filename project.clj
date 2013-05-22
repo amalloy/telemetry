@@ -16,7 +16,7 @@
                  [org.flatland/cassette "0.2.5"]
                  [org.flatland/telegraph "0.1.5-SNAPSHOT" :classifier "resources"]]
   :classifiers {:admin
-                {:dependencies [[org.flatland/telegraph "0.1.3" :classifier "resources"]]
+                {:dependencies [[org.flatland/telegraph "0.1.5-SNAPSHOT" :classifier "resources"]]
                  :omit-source true
                  :compile-path "target/empty"}}
   :main flatland.telemetry)
