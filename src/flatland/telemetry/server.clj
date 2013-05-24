@@ -18,11 +18,13 @@
    [noir.util.middleware :refer [wrap-rewrites]]
    [flatland.useful.utils :refer [returning thread-local]]
    [flatland.useful.map :refer [update keyed map-vals ordering-map]]
+   [postal.core :as postal]
    [flatland.telemetry.util :refer [unix-time from-unix-time]]
    [flatland.telemetry.operators] ; defines stuff in lamina's query parser, not clojure functions
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
-   [flatland.telemetry.cassette :as cassette])
+   [flatland.telemetry.cassette :as cassette]
+   [flatland.telemetry.email :as email])
   (:import (java.io StringReader BufferedReader IOException)
            (java.util Date)
            (java.text SimpleDateFormat))
@@ -383,5 +385,9 @@
                        :modules [{:init phonograph/init
                                   :options {:base-path "./storage/phonograph"}}
                                  {:init cassette/init
-                                  :options {:base-path "./storage/cassette"}}]
+                                  :options {:base-path "./storage/cassette"}}
+                                 {:init email/init
+                                  :options {:from-addr "telemetry-alerts@your-server.com"
+                                            :format :pretty-json
+                                            :mail! postal/send-message}}]
                        :module-order [:phonograph :cassette]}))))
