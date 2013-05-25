@@ -74,7 +74,7 @@
           count = (count + 1) % 100;
           $("#inspect-progress").attr({value: count});
           $("#inspect-results").text(d).scrollTop(999999999);
-        });
+        }, stopQuery);
       }
     };
 
