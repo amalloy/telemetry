@@ -3,7 +3,7 @@
             [lamina.core :as lamina :refer [channel enqueue receive-all enqueue-and-close]]
             [lamina.core.operators :as op]
             [lamina.query.operators :as q]
-            [lamina.query.core :refer [def-query-operator def-query-comparator]]
+            [lamina.query.core :refer [def-query-operator def-query-comparator query-comparator]]
             [flatland.useful.utils :refer [returning]]))
 
 (defn within-window-op [trigger {:keys [id action window task-queue period]
@@ -48,6 +48,44 @@
   :distribute? false
   :transform (fn [{:keys [options]} ch]
                (within-window-op (get options 0) (dissoc options 0) ch)))
+
+(defn after-op [filters {:keys [window period task-queue]
+                         :or {window (t/hours 1) period (t/period)
+                              task-queue (t/task-queue)}}
+                ch]
+  (let [start? (fn [x] (every? #(% x) filters))
+        result (lamina/channel)
+        now #(t/now task-queue)
+        queued (ref [])
+        expiry (ref nil)]
+    (lamina/concat*
+     (op/bridge-accumulate ch result "after"
+      {:accumulator (fn [x]
+                      (dosync
+                       (let [include? (or @expiry (start? x))
+                             new? (and include? (not @expiry))]
+                         (when include?
+                           (alter queued conj x))
+                         (when new?
+                           (ref-set expiry (+ (now) window))))))
+       :emitter (fn []
+                  (dosync
+                   (when (and @expiry (<= @expiry (now)))
+                     (ref-set expiry nil)
+                     (returning [@queued]
+                       (ref-set queued [])))))
+       :period period
+       :task-queue task-queue}))))
+
+(def-query-operator after
+  :periodic? true
+  :distribute? false
+  :transform (fn [{:keys [options]} ch]
+               (after-op (for [[k v] options
+                               :when (number? k)]
+                           (query-comparator v))
+                         options
+                         ch)))
 
 (def-query-comparator contains
   (fn [field value]
