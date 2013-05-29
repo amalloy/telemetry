@@ -20,7 +20,7 @@
    [flatland.useful.map :refer [update keyed map-vals ordering-map]]
    [postal.core :as postal]
    [flatland.telemetry.util :refer [unix-time from-unix-time]]
-   [flatland.telemetry.operators] ; defines stuff in lamina's query parser, not clojure functions
+   flatland.laminate ; defines stuff in lamina's query parser, not clojure functions
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
    [flatland.telemetry.cassette :as cassette]
