@@ -1,14 +1,12 @@
 (ns flatland.telemetry.phonograph
   (:require [flatland.telemetry.graphite.config :as config]
             [flatland.telemetry.sinks :as sinks]
-            [flatland.telemetry.util :as util :refer [memoize* ms->s]]
+            [flatland.telemetry.util :as util :refer [memoize*]]
             [flatland.phonograph :as phonograph]
-            [flatland.useful.utils :refer [with-adjustments]]
             [flatland.useful.map :refer [keyed]]
+            [flatland.laminate.render :as laminate]
             [aleph.formats :as formats]
             [lamina.core :as lamina]
-            [lamina.query :as query]
-            lamina.query.struct
             [clojure.string :as s]
             [compojure.core :refer [GET]])
   (:import java.io.File))
@@ -98,11 +96,6 @@ into the time-unit representation that telemetry uses."
                            (every 6 hours for 12 weeks)
                            (every day for 10 years)]]]))
 
-(defn subtract-day [^Date d]
-  (.getTime (doto (Calendar/getInstance)
-              (.setTime d)
-              (.add Calendar/DATE -1))))
-
 (defn timed-tuple [timestamp value]
   [(* 1000 timestamp) value])
 
@@ -119,60 +112,20 @@ into the time-unit representation that telemetry uses."
                              (range from until density)
                              values))))
 
-(defn points [targets offset query-opts]
-  (for [target targets]
-    {:target target
-     :datapoints (for [{:keys [timestamp value]}
-                       ,,(val (first (query/query-seqs
-                                      {(str "&" target) nil} query-opts)))]
-                   [value (-> timestamp ;; render API expects [value time] tuples
-                              (- offset)
-                              (/ 1000))])}))
-
-(defn parse-interval
-  ([^String s]
-     (let [[sign s] (if (.startsWith s "-")
-                        [- (subs s 1)]
-                        [+ s])]
-         (long (sign (lamina.query.struct/parse-time-interval s)))))
-  ([^String s default]
-     (if (seq s)
-       (parse-interval s)
-       default)))
-
-(defn align-to [i alignment]
-  (* alignment
-     (quot (+ i (dec alignment)) ;; round *up* to nearest [alignment]
-           alignment)))
-
-(defn parse-render-opts [{:keys [now from until shift period align]}]
-  (let [offset (parse-interval shift 0)
-        align (parse-interval align 1)
-        period (parse-interval period nil)
-        now (+ offset now)
-        [from until] (for [[timespec default] [[from (subtract-day now)]
-                                               [until now]]]
-                       (ms->s
-                        (-> (if (seq timespec)
-                              (+ now (parse-interval timespec))
-                              default)
-                            (align-to align))))]
-    (keyed [offset from until period])))
-
 (defn handler [open]
   (GET "/render" [target from until shift period align]
     (let [targets (if (coll? target) ; if there's only one target it's a string, but if multiple are
                     target           ; specified then compojure will make a list of them
                     [target])
           now (System/currentTimeMillis)
-          {:keys [offset from until period]} (parse-render-opts
+          {:keys [offset from until period]} (laminate/parse-render-opts
                                               (keyed [now from until shift period align]))]
-      (if-let [result (points targets offset
-                              (merge {:payload tuple-value, :timestamp tuple-time
-                                      :seq-generator (fn [pattern]
-                                                       (phonograph-seq open pattern
-                                                                       from until))}
-                                     (when period {:period period})))]
+      (if-let [result (laminate/points targets offset
+                                       (merge {:payload tuple-value, :timestamp tuple-time
+                                               :seq-generator (fn [pattern]
+                                                                (phonograph-seq open pattern
+                                                                                from until))}
+                                              (when period {:period period})))]
         {:status 200
          :headers {"Content-Type" "application/json"}
          :body (formats/encode-json->string result)}

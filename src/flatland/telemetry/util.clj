@@ -4,12 +4,6 @@
             [clojure.string :as s])
   (:use flatland.useful.debug))
 
-(defn ms->s [ms]
-  (-> ms (quot 1000)))
-
-(defn s->ms [s]
-  (* s 1000))
-
 (defmacro delay*
   "Like clojure.core/delay, with a couple changes. First, sadly, it doesn't respond to (force),
    which checks specifically for clojure.lang.Delay. More importantly, it behaves differently if

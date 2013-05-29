@@ -19,7 +19,7 @@
    [flatland.useful.utils :refer [returning thread-local]]
    [flatland.useful.map :refer [update keyed map-vals ordering-map]]
    [postal.core :as postal]
-   [flatland.telemetry.util :refer [s->ms ms->s]]
+   [flatland.laminate.time :refer [s->ms ms->s]]
    flatland.laminate ; defines stuff in lamina's query parser, not clojure functions
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
