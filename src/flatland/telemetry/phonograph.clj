@@ -120,17 +120,12 @@ into the time-unit representation that telemetry uses."
                              (range from until density)
                              values))))
 
-(defn points [open targets from until offset query-opts]
+(defn points [targets offset query-opts]
   (for [target targets]
     {:target target
      :datapoints (for [{:keys [timestamp value]}
                        ,,(val (first (query/query-seqs
-                                      {(str "&" target) nil}
-                                      (merge query-opts
-                                             {:payload tuple-value, :timestamp tuple-time
-                                              :seq-generator (fn [pattern]
-                                                               (phonograph-seq open pattern
-                                                                               from until))}))))]
+                                      {(str "&" target) nil} query-opts)))]
                    [value (-> timestamp ;; render API expects [value time] tuples
                               (- offset)
                               (/ 1000))])}))
@@ -159,8 +154,7 @@ into the time-unit representation that telemetry uses."
                     [target])
           offset (maybe-interval shift 0)
           align (maybe-interval align 1)
-          query-opts (when (seq period)
-                       {:period (parse-interval period)})
+          period (maybe-interval period nil)
           now (Date. (+ offset (.getTime (Date.))))
           now-ms (.getTime now)
           [from until] (for [[timespec default] [[from (subtract-day now)]
@@ -170,7 +164,12 @@ into the time-unit representation that telemetry uses."
                                 (Date. (+ now-ms (parse-interval timespec)))
                                 default)
                               (align-to align))))]
-      (if-let [result (points open targets from until offset query-opts)]
+      (if-let [result (points targets offset
+                              (merge {:payload tuple-value, :timestamp tuple-time
+                                      :seq-generator (fn [pattern]
+                                                       (phonograph-seq open pattern
+                                                                       from until))}
+                                     (when period {:period period})))]
         {:status 200
          :headers {"Content-Type" "application/json"}
          :body (formats/encode-json->string result)}
