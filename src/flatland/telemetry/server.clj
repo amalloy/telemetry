@@ -19,7 +19,7 @@
    [flatland.useful.utils :refer [returning thread-local]]
    [flatland.useful.map :refer [update keyed map-vals ordering-map]]
    [postal.core :as postal]
-   [flatland.telemetry.util :refer [unix-time from-unix-time]]
+   [flatland.telemetry.util :refer [s->ms ms->s]]
    flatland.laminate ; defines stuff in lamina's query parser, not clojure functions
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
@@ -48,8 +48,8 @@
   30000)
 
 (let [formatter (thread-local (SimpleDateFormat. "yyyy-MM-dd HH:mm"))]
-  (defn format-date-progress [date]
-    (.format @formatter date)))
+  (defn format-date-progress [^long ms]
+    (.format @formatter (Date. ms))))
 
 (defn subscribe
   "Subscribe to the given trace descriptor, returning a channel of the resuts. Sets the
@@ -116,7 +116,7 @@
         (->> (lamina/sample-every {:period 5000})
              (lamina/map* (fn [{:keys [timestamp]}]
                             (str @message-count " "
-                                 (format-date-progress (from-unix-time timestamp))
+                                 (format-date-progress (s->ms timestamp))
                                  "\n"))))
         (lamina/join response-channel))
     (lamina/siphon old-channel combined)
@@ -151,9 +151,10 @@
             (remove-query config type label)
             (let [response-channel (lamina/channel)
                   live-channel (->> value
-                                    (lamina/map* (fn [obj]
-                                                   {:timestamp (unix-time (Date.))
-                                                    :value obj})))
+                                    (lamina/map*
+                                     (fn [obj]
+                                       {:timestamp (ms->s (System/currentTimeMillis))
+                                        :value obj})))
                   channel (maybe-replay config live-channel query period replay-since response-channel)
                   unsubscribe #(lamina/close channel)]
               (dosync

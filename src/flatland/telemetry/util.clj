@@ -2,16 +2,13 @@
   (:require [me.raynes.fs :as fs]
             [flatland.useful.seq :refer [lazy-loop]]
             [clojure.string :as s])
-  (:import java.util.Date)
   (:use flatland.useful.debug))
 
-(defn unix-time
-  "Number of seconds since the unix epoch, as by Linux's time() system call."
-  [^Date date]
-  (-> date (.getTime) (quot 1000)))
+(defn ms->s [ms]
+  (-> ms (quot 1000)))
 
-(defn from-unix-time [time]
-  (Date. (long (* time 1000))))
+(defn s->ms [s]
+  (* s 1000))
 
 (defmacro delay*
   "Like clojure.core/delay, with a couple changes. First, sadly, it doesn't respond to (force),

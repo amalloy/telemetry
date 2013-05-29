@@ -1,7 +1,7 @@
 (ns flatland.telemetry.phonograph
   (:require [flatland.telemetry.graphite.config :as config]
             [flatland.telemetry.sinks :as sinks]
-            [flatland.telemetry.util :as util :refer [memoize* unix-time]]
+            [flatland.telemetry.util :as util :refer [memoize* ms->s]]
             [flatland.phonograph :as phonograph]
             [flatland.useful.utils :refer [with-adjustments]]
             [flatland.useful.map :refer [keyed]]
@@ -11,8 +11,7 @@
             lamina.query.struct
             [clojure.string :as s]
             [compojure.core :refer [GET]])
-  (:import java.io.File
-           (java.util Date Calendar)))
+  (:import java.io.File))
 
 (defn regex-search [s tests]
   (first (for [[pattern value] tests
@@ -130,40 +129,44 @@ into the time-unit representation that telemetry uses."
                               (- offset)
                               (/ 1000))])}))
 
-(defn parse-interval [^String s]
-  (let [[sign s] (if (.startsWith s "-")
-                   [- (subs s 1)]
-                   [+ s])]
-    (long (sign (lamina.query.struct/parse-time-interval s)))))
+(defn parse-interval
+  ([^String s]
+     (let [[sign s] (if (.startsWith s "-")
+                        [- (subs s 1)]
+                        [+ s])]
+         (long (sign (lamina.query.struct/parse-time-interval s)))))
+  ([^String s default]
+     (if (seq s)
+       (parse-interval s)
+       default)))
 
-(defn maybe-interval [timespec default]
-  (if (seq timespec)
-    (parse-interval timespec)
-    default))
+(defn align-to [i alignment]
+  (* alignment
+     (quot (+ i (dec alignment)) ;; round *up* to nearest [alignment]
+           alignment)))
 
-(defn align-to [^Date d alignment]
-  (let [i (.getTime d)]
-    (Date. (* alignment
-              (quot (+ i (dec alignment)) ;; round *up* to nearest [alignment]
-                    alignment)))))
+(defn parse-render-opts [{:keys [now from until shift period align]}]
+  (let [offset (parse-interval shift 0)
+        align (parse-interval align 1)
+        period (parse-interval period nil)
+        now (+ offset now)
+        [from until] (for [[timespec default] [[from (subtract-day now)]
+                                               [until now]]]
+                       (ms->s
+                        (-> (if (seq timespec)
+                              (+ now (parse-interval timespec))
+                              default)
+                            (align-to align))))]
+    (keyed [offset from until period])))
 
 (defn handler [open]
   (GET "/render" [target from until shift period align]
     (let [targets (if (coll? target) ; if there's only one target it's a string, but if multiple are
                     target           ; specified then compojure will make a list of them
                     [target])
-          offset (maybe-interval shift 0)
-          align (maybe-interval align 1)
-          period (maybe-interval period nil)
-          now (Date. (+ offset (.getTime (Date.))))
-          now-ms (.getTime now)
-          [from until] (for [[timespec default] [[from (subtract-day now)]
-                                                 [until now]]]
-                         (unix-time
-                          (-> (if (seq timespec)
-                                (Date. (+ now-ms (parse-interval timespec)))
-                                default)
-                              (align-to align))))]
+          now (System/currentTimeMillis)
+          {:keys [offset from until period]} (parse-render-opts
+                                              (keyed [now from until shift period align]))]
       (if-let [result (points targets offset
                               (merge {:payload tuple-value, :timestamp tuple-time
                                       :seq-generator (fn [pattern]
