@@ -1,8 +1,7 @@
 (ns flatland.telemetry.util
   (:require [me.raynes.fs :as fs]
             [flatland.useful.seq :refer [lazy-loop]]
-            [clojure.string :as s])
-  (:use flatland.useful.debug))
+            [clojure.string :as s]))
 
 (defmacro delay*
   "Like clojure.core/delay, with a couple changes. First, sadly, it doesn't respond to (force),
