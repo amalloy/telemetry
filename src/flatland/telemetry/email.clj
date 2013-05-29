@@ -26,7 +26,7 @@
 (defn extract-value [{:keys [timestamp value]}]
   (if (map? value)
     (into {} (for [[k v] value
-                   :when (not (util/empty-coll? v))]
+                   :when (not (useful/empty-coll? v))]
                [k v]))
     value))
 
