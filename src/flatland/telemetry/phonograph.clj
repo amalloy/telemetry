@@ -148,7 +148,9 @@ into the time-unit representation that telemetry uses."
 
 (defn align-to [^Date d alignment]
   (let [i (.getTime d)]
-    (Date. (- i (rem i alignment)))))
+    (Date. (* alignment
+              (quot (+ i (dec alignment)) ;; round *up* to nearest [alignment]
+                    alignment)))))
 
 (defn handler [open]
   (GET "/render" [target from until shift period align]
