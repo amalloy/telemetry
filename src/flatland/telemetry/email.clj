@@ -1,6 +1,7 @@
 (ns flatland.telemetry.email
   (:require [flatland.telemetry.graphite.config :as config]
             [flatland.useful.map :refer [keyed]]
+            [flatland.useful.utils :as useful]
             [cheshire.core :as cheshire]
             [postal.core :as postal]
             [lamina.core :as lamina]
@@ -22,6 +23,13 @@
                                         (generate message)
                                         "\n")}]}))))
 
+(defn extract-value [{:keys [timestamp value]}]
+  (if (map? value)
+    (into {} (for [[k v] value
+                   :when (not (util/empty-coll? v))]
+               [k v]))
+    value))
+
 (defn init
   "Supported config options:
    - base-path: the path under which to store all the phonograph files.
@@ -42,8 +50,8 @@
                (let [[to subject] (s/split target #":" 2)
                      template (keyed [to subject])]
                  (-> ch
-                     (->> (lamina/map* :value)
-                          (lamina/remove* nil?)
+                     (->> (lamina/map* extract-value)
+                          (lamina/remove* useful/empty-coll?)
                           (lamina/map* (fn [value]
                                          (assoc template :message value))))
                      (lamina/siphon nexus))))
