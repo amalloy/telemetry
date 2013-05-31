@@ -113,13 +113,13 @@ into the time-unit representation that telemetry uses."
                              values))))
 
 (defn handler [open]
-  (GET "/render" [target from until shift period align]
+  (GET "/render" [target from until shift period align timezone]
     (let [targets (if (coll? target) ; if there's only one target it's a string, but if multiple are
                     target           ; specified then compojure will make a list of them
                     [target])
           now (System/currentTimeMillis)
           {:keys [offset from until period]} (laminate/parse-render-opts
-                                              (keyed [now from until shift period align]))]
+                                              (keyed [now from until shift period align timezone]))]
       (if-let [result (laminate/points targets offset
                                        (merge {:payload tuple-value, :timestamp tuple-time
                                                :seq-generator (fn [pattern]
