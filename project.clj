@@ -11,6 +11,7 @@
                  [me.raynes/fs "1.4.2"]
                  [lib-noir "0.5.5"]
                  [cheshire "5.1.1"]
+                 [congomongo "0.4.1"]
                  [com.draines/postal "1.9.2"]
                  [org.flatland/useful "0.9.4"]
                  [org.flatland/phonograph "0.1.4"]
