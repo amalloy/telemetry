@@ -93,11 +93,11 @@ $(document).ready(function() {
     var $button = $(this);
     $button.attr("disabled", true);
     admin.addQuery({
-      name:        $("#name").val(),
-      target:      $("#target").val(),
-      type:        $("#type").val(),
-      query:       $("#query").val(),
-      replaySince: $("#replay-since").val()
+      name:   $("#name").val(),
+      target: $("#target").val(),
+      type:   $("#type").val(),
+      query:  $("#query").val(),
+      "replay-since": $("#replay-since").val()
     }, function(d) {
       $button.attr("disabled", false);
     });
@@ -112,6 +112,6 @@ $(document).ready(function() {
   $("#target").focus(function(e) { $(this).attr("placeholder", $("#name").val() || "target:name") });
   $("#target").blur(function(e)  { $(this).attr("placeholder", "target")                          });
 
-  $("#replay-since").focus(function(e) { $(this).attr("placeholder", "yyyy-mm-dd")   });
+  $("#replay-since").focus(function(e) { $(this).attr("placeholder", "-7d")          });
   $("#replay-since").blur(function(e)  { $(this).attr("placeholder", "replay since") });
 });
