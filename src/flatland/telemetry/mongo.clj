@@ -19,13 +19,10 @@
 
 (defn handler [conn]
   (GET "/render" [target from until shift period align timezone]
-    (let [targets (if (coll? target)
-                    target
-                    [target])
-          now (System/currentTimeMillis)
-          {:keys [offset from until period]} (laminate/parse-render-opts
-                                              (keyed [now from until period
-                                                      shift align timezone]))]
+    (let [now (System/currentTimeMillis)
+          {:keys [targets offset from until period]} (laminate/parse-render-opts
+                                                      (keyed [target now from until period
+                                                              shift align timezone]))]
       (if (some #(re-find #"\*" %) targets)
         {:status 400 :body "Mongo plugin doesn't yet support querying targets with wildcards"}
         (if-let [result (laminate/points targets offset
