@@ -1,21 +1,35 @@
 (ns flatland.telemetry.mongo
   (:require [lamina.core :as lamina]
             [aleph.formats :as formats]
+            [clojure.string :as s]
             [flatland.laminate.render :as laminate]
             [flatland.useful.map :refer [keyed]]
+            [flatland.useful.seq :as seq]
             [compojure.core :refer [GET]]
             [somnium.congomongo :as mongo]))
 
+(defn collection-lookup []
+  (let [collections (delay (mongo/collections))]
+    (fn [target]
+      (if (re-find #"\*" target)
+        (let [regex (re-pattern (s/replace target "*" ".*"))]
+          (filter #(re-matches regex %) @collections))
+        [target]))))
+
 (defn mongo-seq [conn from until]
-  (fn [target]
-    (mongo/with-mongo conn
-      (for [{:keys [timestamp values]} (seque (mongo/fetch target
-                                                           :where {:timestamp {:$gte from
-                                                                               :$lt until}}
-                                                           :only {:_id false}))
-            :let [time (* timestamp 1000)]
-            value values]
-        {:timestamp time, :payload value}))))
+  (let [collections (collection-lookup)]
+    (fn [target]
+      (mongo/with-mongo conn
+        (seq ;; make sure to start realizing each coll while conn is still bound
+         (apply seq/merge-sorted #(< (:timestamp %1) (:timestamp %2))
+                (for [collection (collections target)]
+                  (for [{:keys [timestamp values]} (mongo/fetch collection
+                                                                :where {:timestamp {:$gte from
+                                                                                    :$lt until}}
+                                                                :only {:_id false})
+                        :let [time (* timestamp 1000)]
+                        value values]
+                    {:timestamp time, :payload value}))))))))
 
 (defn handler [conn]
   (GET "/render" [target from until shift period align timezone]
@@ -23,17 +37,15 @@
           {:keys [targets offset from until period]} (laminate/parse-render-opts
                                                       (keyed [target now from until period
                                                               shift align timezone]))]
-      (if (some #(re-find #"\*" %) targets)
-        {:status 400 :body "Mongo plugin doesn't yet support querying targets with wildcards"}
-        (if-let [result (laminate/points targets offset
-                                         (-> {:timestamp :timestamp,
-                                              :payload :payload
-                                              :seq-generator (mongo-seq conn from until)}
-                                             (merge (when period {:period period}))))]
-          {:status 200
-           :headers {"Content-Type" "application/json"}
-           :body (formats/encode-json->string result)}
-          {:status 404 :body "Not found\n"})))))
+      (if-let [result (laminate/points targets offset
+                                       (-> {:timestamp :timestamp,
+                                            :payload :payload
+                                            :seq-generator (mongo-seq conn from until)}
+                                           (merge (when period {:period period}))))]
+        {:status 200
+         :headers {"Content-Type" "application/json"}
+         :body (formats/encode-json->string result)}
+        {:status 404 :body "Not found\n"}))))
 
 (defn init [{:keys [uri] :or {uri "mongodb://localhost/telemetry"}}]
   (let [conn (mongo/make-connection uri)]
