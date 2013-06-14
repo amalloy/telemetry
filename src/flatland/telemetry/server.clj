@@ -213,6 +213,10 @@
         response))
     handler))
 
+(defn wrap-deref [handler-ref]
+  (fn [req]
+    (@handler-ref req)))
+
 (defn wrap-debug [handler]
   (fn [req]
     (?! (handler (?! req)))))
@@ -358,8 +362,13 @@
                                   ; real format we support, we just have to do it by hand for now.
                                   (merge tcp-options {:port (or tcp-port default-tcp-port)
                                                       :frame (gloss/string :utf-8)}))
-        handler (ring-handler config)
-        http (http/start-http-server (http/wrap-ring-handler handler)
+        debug-aleph? (atom false)
+        handler-atom (atom (ring-handler config))
+        handler (wrap-deref handler-atom)
+        server (http/wrap-ring-handler handler)
+        http (http/start-http-server (fn [ch req]
+                                       (when @debug-aleph? (?! req))
+                                       (server ch req))
                                      {:port (or http-port default-http-port)})]
     {:shutdown (fn shutdown []
                  (tcp)
@@ -370,7 +379,9 @@
                  (doseq [[module-name {:keys [shutdown]}] (:modules config)]
                    (shutdown)))
      :config config
-     :handler handler}))
+     :handler handler
+     :debug-aleph? debug-aleph?
+     :app handler-atom}))
 
 (defn destroy!
   "Given a server handle returned by init, shuts down all running servers and modules."
