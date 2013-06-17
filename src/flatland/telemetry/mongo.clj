@@ -1,5 +1,7 @@
 (ns flatland.telemetry.mongo
   (:require [lamina.core :as lamina]
+            [lamina.query :as query]
+            [lamina.trace :as trace]
             [aleph.formats :as formats]
             [clojure.string :as s]
             [flatland.laminate.render :as laminate]
@@ -54,11 +56,22 @@
      :listen (fn [ch target]
                (mongo/with-mongo conn
                  (mongo/add-index! target [:timestamp] :unique true))
-               (lamina/receive-all ch
-                                   (fn [{:keys [timestamp value]}]
-                                     (mongo/with-mongo conn
-                                       (mongo/update! target
-                                                      {:timestamp timestamp}
-                                                      {:$push {:values value}})))))
+               ;; TODO bulk inserts across multiple collections?
+               (lamina/receive-all (query/query-stream ".partition-every(period:1)"
+                                                       {:timestamp :timestamp
+                                                        :payload identity}
+                                                       ch)
+                                   (fn [values]
+                                     (when (seq values)
+                                       (let [timestamp (:timestamp (first values))]
+                                         (mongo/with-mongo conn
+                                           ;; TODO clean up congomongo if i get around to it
+                                           (try
+                                             (mongo/insert! target
+                                                            {:timestamp timestamp
+                                                             :values (map :value values)})
+                                             (catch Exception e
+                                               (trace/trace :mongo:error
+                                                            (keyed [uri target values]))))))))))
      :handler (handler conn)
      :debug {:mongo conn}}))
