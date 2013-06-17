@@ -5,6 +5,7 @@
             [aleph.formats :as formats]
             [clojure.string :as s]
             [flatland.laminate.render :as laminate]
+            [flatland.telemetry.util :refer [ascending]]
             [flatland.useful.map :refer [keyed]]
             [flatland.useful.seq :as seq]
             [compojure.core :refer [GET]]
@@ -23,7 +24,7 @@
     (fn [target]
       (mongo/with-mongo conn
         (seq ;; make sure to start realizing each coll while conn is still bound
-         (apply seq/merge-sorted #(< (:timestamp %1) (:timestamp %2))
+         (apply seq/merge-sorted (ascending :timestamp)
                 (for [collection (collections target)]
                   (for [{:keys [timestamp values]} (mongo/fetch collection
                                                                 :where {:timestamp {:$gte from

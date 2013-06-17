@@ -4,7 +4,7 @@
             [aleph.formats :refer [encode-json->string decode-json]]
             [flatland.cassette :as cassette :refer [create-or-open append-message!]]
             [flatland.telemetry.sinks :as sinks]
-            [flatland.telemetry.util :refer [memoize*]]
+            [flatland.telemetry.util :refer [memoize* ascending]]
             [flatland.useful.seq :as seq]
             [me.raynes.fs :as fs]
             [clojure.string :as s]
@@ -24,7 +24,7 @@
                           (assoc record "messages"
                                  (for [message (get record "messages")]
                                    (assoc message :topic topic))))))
-            timeline (apply seq/merge-sorted #(< (%1 "time") (%2 "time"))
+            timeline (apply seq/merge-sorted (ascending #(get % "time"))
                             (pmap seq streams))]
         (for [{:strs [time messages]} timeline
               message messages]

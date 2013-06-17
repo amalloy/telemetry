@@ -52,3 +52,10 @@
 (defn target-names [targets]
   (for [target targets]
     (s/join ":" (rest target))))
+
+(letfn [(comparator [direction]
+          (fn [f]
+            (fn [a b]
+              (direction (f a) (f b)))))]
+  (def descending (comparator >))
+  (def ascending (comparator <)))
