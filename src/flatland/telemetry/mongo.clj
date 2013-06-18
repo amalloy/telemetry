@@ -40,6 +40,10 @@
                     (mongo-seq conn from until))
                   {}))
 
+(defn replay-generator [conn]
+  (fn [{:keys [pattern start-time]}]
+    ((mongo-seq conn start-time Long/MAX_VALUE) pattern)))
+
 (defn init [{:keys [uri] :or {uri "mongodb://localhost/telemetry"}}]
   (let [conn (mongo/make-connection uri)
         nexus (lamina/channel* :permanent? true :grounded? true)]
@@ -62,4 +66,5 @@
                    (->> (lamina/mapcat* (sinks/sink target)))
                    (lamina/siphon nexus)))
      :handler (handler conn)
+     :replay (replay-generator conn)
      :debug {:mongo conn}}))
