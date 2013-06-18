@@ -1,7 +1,11 @@
 (ns flatland.telemetry.util
   (:require [me.raynes.fs :as fs]
             [flatland.useful.seq :refer [lazy-loop]]
-            [clojure.string :as s]))
+            [flatland.useful.map :refer [keyed]]
+            [clojure.string :as s]
+            [aleph.formats :as formats]
+            [flatland.laminate.render :as laminate]
+            [compojure.core :refer [GET]]))
 
 (defmacro delay*
   "Like clojure.core/delay, with a couple changes. First, sadly, it doesn't respond to (force),
@@ -59,3 +63,18 @@
               (direction (f a) (f b)))))]
   (def descending (comparator >))
   (def ascending (comparator <)))
+
+(defn render-handler [points {:keys [timestamp payload]
+                              :or {timestamp :timestamp, payload :payload}}]
+  (GET "/render" [target from until shift period align timezone]
+    (let [now (System/currentTimeMillis)
+          {:keys [targets offset from until period]} (laminate/parse-render-opts
+                                                      (keyed [target now from until
+                                                              shift period align timezone]))]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body (formats/encode-json->string
+              (laminate/points targets offset
+                               (merge {:seq-generator (points from until)
+                                       :timestamp timestamp :payload payload}
+                                      (when period {:period period}))))})))

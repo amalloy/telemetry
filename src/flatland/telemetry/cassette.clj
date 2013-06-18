@@ -4,7 +4,7 @@
             [aleph.formats :refer [encode-json->string decode-json]]
             [flatland.cassette :as cassette :refer [create-or-open append-message!]]
             [flatland.telemetry.sinks :as sinks]
-            [flatland.telemetry.util :refer [memoize* ascending]]
+            [flatland.telemetry.util :refer [memoize* ascending render-handler]]
             [flatland.useful.seq :as seq]
             [me.raynes.fs :as fs]
             [clojure.string :as s]
@@ -14,23 +14,36 @@
                           encode-json->string
                           #(decode-json % false)))
 
-(defn replay-generator [{:keys [base-path codec] :or {codec codec}}]
+(defn cassette-seq [{:keys [base-path codec] :or {codec codec}}]
   (let [base-file (fs/file base-path)]
-    (fn [{:keys [pattern start-time]}]
+    (fn [pattern from until]
       (let [streams (for [file (fs/glob base-file pattern)]
                       (let [topic (fs/base-name file)]
                         (for [record (cassette/messages-since (cassette/open file codec false)
-                                                               #(>= (% "time") start-time))]
+                                                              #(>= (% "time") from))]
                           (assoc record "messages"
                                  (for [message (get record "messages")]
                                    (assoc message :topic topic))))))
             timeline (apply seq/merge-sorted (ascending #(get % "time"))
                             (pmap seq streams))]
         (for [{:strs [time messages]} timeline
+              :while (< time until)
               message messages]
           (-> message
               (dissoc "timestamp")
               (assoc :timestamp time)))))))
+
+(defn replay-generator [config]
+  (let [generator (cassette-seq config)]
+    (fn [{:keys [pattern start-time]}]
+      (generator pattern start-time Long/MAX_VALUE))))
+
+(defn handler [config]
+  (render-handler (fn [from until]
+                    (let [generator (cassette-seq config)]
+                      (fn [pattern]
+                        (generator pattern from until))))
+                  {:timestamp #(* 1000 (:timestamp %)) :payload identity}))
 
 (defn init [{:keys [base-path file-size] :as config}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
@@ -49,6 +62,7 @@
                  (reset! (:cache (meta open)) nil))
      :targets (fn []
                 (map fs/base-name (.listFiles (fs/file base-path))))
+     :handler (handler config)
      :listen (fn [ch name]
                (-> ch
                    (->> (lamina/mapcat* (sinks/sink name)))

@@ -5,7 +5,7 @@
             [aleph.formats :as formats]
             [clojure.string :as s]
             [flatland.laminate.render :as laminate]
-            [flatland.telemetry.util :refer [ascending]]
+            [flatland.telemetry.util :refer [ascending render-handler]]
             [flatland.useful.map :refer [keyed]]
             [flatland.useful.seq :as seq]
             [compojure.core :refer [GET]]
@@ -35,20 +35,9 @@
                     {:timestamp time, :payload value}))))))))
 
 (defn handler [conn]
-  (GET "/render" [target from until shift period align timezone]
-    (let [now (System/currentTimeMillis)
-          {:keys [targets offset from until period]} (laminate/parse-render-opts
-                                                      (keyed [target now from until period
-                                                              shift align timezone]))]
-      (if-let [result (laminate/points targets offset
-                                       (-> {:timestamp :timestamp,
-                                            :payload :payload
-                                            :seq-generator (mongo-seq conn from until)}
-                                           (merge (when period {:period period}))))]
-        {:status 200
-         :headers {"Content-Type" "application/json"}
-         :body (formats/encode-json->string result)}
-        {:status 404 :body "Not found\n"}))))
+  (render-handler (fn [from until]
+                    (mongo-seq conn from until))
+                  {}))
 
 (defn init [{:keys [uri] :or {uri "mongodb://localhost/telemetry"}}]
   (let [conn (mongo/make-connection uri)]

@@ -1,14 +1,10 @@
 (ns flatland.telemetry.phonograph
   (:require [flatland.telemetry.graphite.config :as config]
             [flatland.telemetry.sinks :as sinks]
-            [flatland.telemetry.util :as util :refer [memoize*]]
+            [flatland.telemetry.util :as util :refer [memoize* render-handler]]
             [flatland.phonograph :as phonograph]
-            [flatland.useful.map :refer [keyed]]
-            [flatland.laminate.render :as laminate]
-            [aleph.formats :as formats]
             [lamina.core :as lamina]
-            [clojure.string :as s]
-            [compojure.core :refer [GET]])
+            [clojure.string :as s])
   (:import java.io.File))
 
 (defn regex-search [s tests]
@@ -113,21 +109,10 @@ into the time-unit representation that telemetry uses."
                              values))))
 
 (defn handler [open]
-  (GET "/render" [target from until shift period align timezone]
-    (let [now (System/currentTimeMillis)
-          {:keys [targets offset from until period]} (laminate/parse-render-opts
-                                                      (keyed [target now from until
-                                                              shift period align timezone]))]
-      (if-let [result (laminate/points targets offset
-                                       (merge {:payload tuple-value, :timestamp tuple-time
-                                               :seq-generator (fn [pattern]
-                                                                (phonograph-seq open pattern
-                                                                                from until))}
-                                              (when period {:period period})))]
-        {:status 200
-         :headers {"Content-Type" "application/json"}
-         :body (formats/encode-json->string result)}
-        {:status 404}))))
+  (render-handler (fn [from until]
+                    (fn [pattern]
+                      (phonograph-seq open pattern from until)))
+                  {:timestamp tuple-time :payload tuple-value}))
 
 (let [default-config {:db-opts default-db-opts
                       :archive-retentions default-archive-retentions}]
