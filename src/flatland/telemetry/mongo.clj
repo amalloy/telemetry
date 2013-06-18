@@ -5,6 +5,7 @@
             [aleph.formats :as formats]
             [clojure.string :as s]
             [flatland.laminate.render :as laminate]
+            [flatland.telemetry.sinks :as sinks]
             [flatland.telemetry.util :refer [ascending render-handler]]
             [flatland.useful.map :refer [keyed]]
             [flatland.useful.seq :as seq]
@@ -29,10 +30,10 @@
                   (for [{:keys [timestamp values]} (mongo/fetch collection
                                                                 :where {:timestamp {:$gte from
                                                                                     :$lt until}}
-                                                                :only {:_id false})
-                        :let [time (* timestamp 1000)]
-                        value values]
-                    {:timestamp time, :payload value}))))))))
+                                                                :only {:_id false})]
+                    {:timestamp (* timestamp 1000)
+                     :payload (for [value values]
+                                (assoc value :topic collection))}))))))))
 
 (defn handler [conn]
   (render-handler (fn [from until]
@@ -40,28 +41,25 @@
                   {}))
 
 (defn init [{:keys [uri] :or {uri "mongodb://localhost/telemetry"}}]
-  (let [conn (mongo/make-connection uri)]
+  (let [conn (mongo/make-connection uri)
+        nexus (lamina/channel* :permanent? true :grounded? true)]
+    (lamina/receive-all nexus
+                        (fn store [[target values timestamp]]
+                          (when (seq values)
+                            (mongo/with-mongo conn
+                              (try
+                                (mongo/add-index! target [:timestamp] :unique true)
+                                (mongo/insert! target {:timestamp timestamp
+                                                       :values (for [value values]
+                                                                 (dissoc value :topic))})
+                                (catch Exception exception
+                                  (trace/trace :mongo:error
+                                               (keyed [uri target timestamp values exception]))))))))
     {:name :mongo
      :shutdown #(mongo/close-connection conn)
-     :listen (fn [ch target]
-               (mongo/with-mongo conn
-                 (mongo/add-index! target [:timestamp] :unique true))
-               ;; TODO bulk inserts across multiple collections?
-               (lamina/receive-all (query/query-stream ".partition-every(period:1)"
-                                                       {:timestamp :timestamp
-                                                        :payload identity}
-                                                       ch)
-                                   (fn [values]
-                                     (when (seq values)
-                                       (let [timestamp (:timestamp (first values))]
-                                         (mongo/with-mongo conn
-                                           ;; TODO clean up congomongo if i get around to it
-                                           (try
-                                             (mongo/insert! target
-                                                            {:timestamp timestamp
-                                                             :values (map :value values)})
-                                             (catch Exception e
-                                               (trace/trace :mongo:error
-                                                            (keyed [uri target values]))))))))))
+     :listen (fn listen [ch target]
+               (-> ch
+                   (->> (lamina/mapcat* (sinks/sink target)))
+                   (lamina/siphon nexus)))
      :handler (handler conn)
      :debug {:mongo conn}}))
