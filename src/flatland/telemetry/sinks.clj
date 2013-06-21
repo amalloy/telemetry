@@ -1,6 +1,44 @@
 (ns flatland.telemetry.sinks
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [lamina.time :as t]
+            [lamina.core :as lamina]
+            [lamina.query.operators :as q]
+            [lamina.query.core :refer [def-query-operator]])
   (:import java.util.Date))
+
+(defn timed-value [time values]
+  {::time time, ::values values})
+
+(defn is-timed-value? [x]
+  (every? #(contains? x %) [::time ::values]))
+
+(def get-values ::values)
+(def get-time ::time)
+
+(defn adjust-time [name value real-timestamp]
+  (cond (is-timed-value? value)
+        ,,[[name (get-values value) (get-time value)]]
+        (and (sequential? value)
+             (is-timed-value? (first value)))
+        ,,(for [v value]
+            [name (get-values v) (get-time v)])
+        :else [[name value real-timestamp]]))
+
+(defn timed-values-op [time value {:keys [task-queue]
+                                  :or {task-queue (t/task-queue)}}
+                      ch]
+  (lamina/map* (fn [x]
+                 (timed-value (time x) (value x)))
+               ch))
+
+(def-query-operator timed-values
+  :periodic? false
+  :distribute? true
+  :transform (fn [{:keys [options]} ch]
+               (let [{time 0, value 1 :or {time :time, value :value}} options]
+                 (timed-values-op (q/getter time) (q/getter value)
+                                  (dissoc options 0 1)
+                                  ch))))
 
 ;;; functions for interpolating values into patterns
 
@@ -26,16 +64,17 @@
   "Returns a function which emits each datum decorated with the given label and the current time."
   [name]
   (fn [{:keys [timestamp value]}]
-    [[name value timestamp]]))
+    (adjust-time name value timestamp)))
 
 (defn sink-by-name
   "Returns a function which expects to receive a map of labels to values. Each label has its
    value(s) interpolated into the pattern, and a list of [name value time] tuples is returned."
   [pattern rename-fn]
   (fn [{:keys [timestamp value]}]
-    (for [[k v] value]
-      (let [name (rename-fn pattern (or k "nil"))]
-        [name v timestamp]))))
+    (for [[k v] value
+          adjusted (adjust-time (rename-fn pattern (or k "nil"))
+                                v timestamp)]
+      adjusted)))
 
 (defn sink
   "Determines what kind of pattern name is, and creates an appropriate transformer for its channel.
