@@ -1,25 +1,30 @@
 (ns flatland.telemetry.client
-  (:require [clojure.java.io :as io]
-            [cheshire.core :refer [encode]]
-            [flatland.useful.map :refer [keyed]])
-  (:import java.net.Socket))
+  (:require [aleph.tcp :as tcp]
+            [aleph.formats :as formats]
+            [gloss.core :as gloss]
+            [lamina.core :as lamina]
+            [lamina.connections :as connection]))
 
-(defn connect
-  "Connect to a telemetry server. Takes :host and :port, which default to
-   localhost and 1845 respectively."
-  [& {:keys [host port] :or {host "localhost", port 1845}}]
-  (let [socket (doto (Socket. host port)
-                 (.setKeepAlive true))
-        [reader writer] ((juxt io/reader io/writer) socket)]
-    (keyed [socket reader writer])))
+(defn channel
+  "Creates a channel for writing to a telemetry server. It expects to receive messages of the form
+   [\"topic:name:here\" {:foo {:whatever 1} :bar [10]}], and will send it to the server."
+  [host port]
+  (tcp/tcp-client {:host host :port port :delimiters ["\r\n" "\n"]
+                   :frame [(gloss/string :utf-8 :delimiters [" "])
+                           (gloss/compile-frame (gloss/string :utf-8)
+                                                formats/encode-json->string
+                                                identity)]}))
 
-(defn close
-  "Close the server connection."
-  [server]
-  (.close (:socket server)))
-
-(defn log
-  "Log data to a connected telemetry server."
-  [server label data]
-  (binding [*out* (:writer server)]
-    (println (name label) (encode data))))
+(defn client
+  "Opens a persistent connection to a telemetry server. Returns a map of two functions, :send
+  and :close. :send takes two arguments, a topic and a message; close takes none. Any messages sent
+  via :send will be forwarded to the server, and will be queued if the server is unreachable."
+  [host port]
+  (let [nexus (lamina/channel* :permanent? true)
+        server (connection/persistent-connection #(channel host port)
+                                                 {:on-connected (fn [ch]
+                                                                  (lamina/ground ch)
+                                                                  (lamina/siphon nexus ch))})]
+    (server)
+    {:send (fn [topic message] (lamina/enqueue nexus [topic message]))
+     :close (fn [] (connection/close-connection server))}))
