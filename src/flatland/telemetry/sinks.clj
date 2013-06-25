@@ -24,19 +24,19 @@
             [name (get-values v) (get-time v)])
         :else [[name value real-timestamp]]))
 
-(defn timed-values-op [time value {:keys [task-queue]
+(defn timed-values-op [time values {:keys [task-queue]
                                   :or {task-queue (t/task-queue)}}
                       ch]
   (lamina/map* (fn [x]
-                 (timed-value (time x) (value x)))
+                 (timed-value (time x) (values x)))
                ch))
 
 (def-query-operator timed-values
   :periodic? false
   :distribute? true
   :transform (fn [{:keys [options]} ch]
-               (let [{time 0, value 1 :or {time :time, value :value}} options]
-                 (timed-values-op (q/getter time) (q/getter value)
+               (let [{time 0, values 1 :or {time :time, values :values}} options]
+                 (timed-values-op (q/getter time) (q/getter values)
                                   (dissoc options 0 1)
                                   ch))))
 
