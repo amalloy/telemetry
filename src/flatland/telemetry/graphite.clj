@@ -5,8 +5,8 @@
             [gloss.core :as gloss]
             [flatland.telemetry.sinks :as sinks]
             [flatland.telemetry.util :as util]
-            [lamina.connections :as connection]
             [flatland.telemetry.graphite.config :as config]
+            [flatland.laminate :as laminate]
             [clojure.tools.logging :as log]
             [clojure.string :as s]
             [compojure.core :refer [GET]])
@@ -62,15 +62,10 @@
         valid (->> nexus
                    (lamina/filter* #(not-any? nil? %))
                    (lamina/map* graphitize-name))
-        graphite-connector (connection/persistent-connection
-                            #(graphite-channel host port)
-                            {:on-connected (fn [ch]
-                                             (lamina/ground ch) ;; ignore input from server
-                                             (lamina/siphon valid ch))})]
-    (graphite-connector)
+        server (laminate/persistent-stream valid #(graphite-channel host port))]
     (fn []
       (lamina/close errors)
-      (connection/close-connection graphite-connector))))
+      (server))))
 
 (defn init [{:keys [host port storage-path config-reader] :or {host "localhost" port 2003}}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)

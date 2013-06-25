@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [aleph "0.3.0-rc1"]
                  [org.flatland/lamina "0.5.0-rc3.1"]
-                 [org.flatland/laminate "1.3.0"]
+                 [org.flatland/laminate "1.3.1"]
                  [compojure "1.1.1"]
                  [me.raynes/fs "1.4.2"]
                  [lib-noir "0.5.5"]
