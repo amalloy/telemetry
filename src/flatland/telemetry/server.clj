@@ -340,8 +340,7 @@
                  (throw (Exception. (format "Module %s must provide a shutdown hook."
                                             (:name module)))))
                [(:name module) (-> module
-                                   (update-in [:period] wrap-default default-period)
-                                   (update-in [:subscription-filter] #(or % identity)))]))))
+                                   (update-in [:period] wrap-default default-period))]))))
 
 (defn init
   "Starts the telemetry http and tcp servers, and registers any modules given. Returns a server
