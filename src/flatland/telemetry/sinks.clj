@@ -15,15 +15,6 @@
 (def get-values ::values)
 (def get-time ::time)
 
-(defn adjust-time [name value real-timestamp]
-  (cond (is-timed-value? value)
-        ,,[[name (get-values value) (get-time value)]]
-        (and (sequential? value)
-             (is-timed-value? (first value)))
-        ,,(for [v value]
-            [name (get-values v) (get-time v)])
-        :else [[name value real-timestamp]]))
-
 (defn timed-values-op [time values {:keys [task-queue]
                                   :or {task-queue (t/task-queue)}}
                       ch]
@@ -39,6 +30,15 @@
                  (timed-values-op (q/getter time) (q/getter values)
                                   (dissoc options 0 1)
                                   ch))))
+
+(defn adjust-time [name value real-timestamp]
+  (cond (is-timed-value? value)
+        ,,[[name (get-values value) (get-time value)]]
+        (and (sequential? value)
+             (is-timed-value? (first value)))
+        ,,(for [v value]
+            [name (get-values v) (get-time v)])
+        :else [[name value real-timestamp]]))
 
 ;;; functions for interpolating values into patterns
 
