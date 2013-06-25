@@ -30,10 +30,11 @@
                   (for [{:keys [timestamp values]} (mongo/fetch collection
                                                                 :where {:timestamp {:$gte from
                                                                                     :$lt until}}
-                                                                :only {:_id false})]
-                    {:timestamp (* timestamp 1000)
-                     :payload (for [value values]
-                                (assoc value :topic collection))}))))))))
+                                                                :only {:_id false})
+                        :let [timestamp (* timestamp 1000)]
+                        value values]
+                    {:timestamp timestamp
+                     :payload (assoc value :topic collection)}))))))))
 
 (defn handler [conn]
   (render-handler (fn [from until]
