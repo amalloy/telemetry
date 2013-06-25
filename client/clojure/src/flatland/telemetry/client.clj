@@ -3,7 +3,7 @@
             [aleph.formats :as formats]
             [gloss.core :as gloss]
             [lamina.core :as lamina]
-            [lamina.connections :as connection]))
+            [flatland.laminate :as laminate]))
 
 (defn channel
   "Creates a channel for writing to a telemetry server. It expects to receive messages of the form
@@ -27,11 +27,6 @@
   ([host port {:keys [queue-mode]}]
      (let [nexus (lamina/channel* :permanent? true :grounded? (case queue-mode
                                                                 :queue false
-                                                                :discard true))
-           server (connection/persistent-connection #(channel host port)
-                                                    {:on-connected (fn [ch]
-                                                                     (lamina/ground ch)
-                                                                     (lamina/siphon nexus ch))})]
-       (server)
+                                                                :discard true))]
        {:send (fn [topic message] (lamina/enqueue nexus [topic message]))
-        :close (fn [] (connection/close-connection server))})))
+        :close (laminate/persistent-stream nexus #(channel host port))})))
