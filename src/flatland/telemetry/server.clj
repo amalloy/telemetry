@@ -24,6 +24,7 @@
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
    [flatland.telemetry.cassette :as cassette]
+   [flatland.telemetry.mongo :as mongo]
    [flatland.telemetry.email :as email])
   (:import (java.io StringReader BufferedReader IOException)
            (java.util Date)
@@ -397,8 +398,10 @@
                                   :options {:base-path "./storage/phonograph"}}
                                  {:init cassette/init
                                   :options {:base-path "./storage/cassette"}}
+                                 {:init mongo/init
+                                  :options {}}
                                  {:init email/init
                                   :options {:from-addr "telemetry-alerts@your-server.com"
                                             :format :pretty-json
                                             :mail! postal/send-message}}]
-                       :module-order [:phonograph :cassette]}))))
+                       :module-order [:phonograph :cassette :mongo]}))))
