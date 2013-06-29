@@ -296,14 +296,24 @@
                (log-event :trace)
                (process-event probe data))))))))
 
+(defn parse-replay-arg [s]
+  (let [parser (java.text.SimpleDateFormat. "yyyy-MM-dd")]
+    (when (seq s)
+      (try
+        (ms->s (.getTime (.parse parser s)))
+        (catch Exception e
+          (try
+            (ms->s (- (System/currentTimeMillis)
+                      (lamina.query.struct/parse-time-interval s)))
+            (Long/parseLong s)))))))
+
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
   [config]
   (let [writers (routes (POST "/add-query" [type name target query replay-since]
                           (add-query config
                                      (keyword type) name (not-empty target) query
-                                     (when (seq replay-since)
-                                       (Long/parseLong replay-since))))
+                                     (parse-replay-arg replay-since)))
                         (POST "/remove-query" [type name]
                           (remove-query config (keyword type) name)))
         readers (routes (ANY "/inspect" [query period]
