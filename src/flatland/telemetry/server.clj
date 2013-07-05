@@ -20,6 +20,7 @@
    [flatland.useful.map :refer [update keyed map-vals ordering-map]]
    [postal.core :as postal]
    [flatland.laminate.time :refer [s->ms ms->s]]
+   [flatland.laminate.render :as laminate]
    flatland.laminate ; defines stuff in lamina's query parser, not clojure functions
    [flatland.telemetry.graphite :as graphite]
    [flatland.telemetry.phonograph :as phonograph]
@@ -303,8 +304,8 @@
         (ms->s (.getTime (.parse parser s)))
         (catch Exception e
           (try
-            (ms->s (- (System/currentTimeMillis)
-                      (lamina.query.struct/parse-time-interval s)))
+            (ms->s (+ (System/currentTimeMillis)
+                      (laminate/parse-interval s)))
             (Long/parseLong s)))))))
 
 (defn ring-handler
