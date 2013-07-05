@@ -10,7 +10,8 @@
   {::time time, ::values values})
 
 (defn is-timed-value? [x]
-  (every? #(contains? x %) [::time ::values]))
+  (and (map? x)
+       (every? #(contains? x %) [::time ::values])))
 
 (def get-values ::values)
 (def get-time ::time)
