@@ -169,4 +169,4 @@ into the time-unit representation that telemetry uses."
        :targets (when base-path
                   (fn []
                     (util/target-names (util/path->targets base-path ".pgr"))))
-       :debug {:config config, :nexus nexus, :open open, :cache (meta open)}})))
+       :debug {:config config, :nexus nexus, :open open, :cache (:cache (meta open))}})))
