@@ -5,7 +5,8 @@
             [flatland.phonograph :as phonograph]
             [lamina.core :as lamina]
             [clojure.string :as s])
-  (:import java.io.File))
+  (:import java.io.File
+           java.util.regex.Pattern))
 
 (defn regex-search [s tests]
   (first (for [[pattern value] tests
@@ -55,6 +56,21 @@
   (defn default-db-opts [label]
     {:aggregation (regex-search label storage-modes)}))
 
+(defn find-globbed [^String base-path target]
+  (let [quoted-path (re-pattern (str (Pattern/quote base-path) "/*"))
+        regex (re-pattern (str quoted-path
+                               (-> target
+                                   (s/replace #"\*\d?" ".*")
+                                   (s/replace ":" "/"))
+                               ".pgr"))]
+    (for [^File f (file-seq (File. base-path))
+          :when (and (not (.isDirectory f))
+                     (re-matches regex (.getPath f)))]
+      [(-> (.getPath f)
+           (s/replace quoted-path "")
+           (s/replace "/" ":")
+           (s/replace ".pgr" ""))
+       f])))
 
 (defn regex-archiver [tests]
   (fn [label]
@@ -140,6 +156,13 @@ into the time-unit representation that telemetry uses."
                  (-> ch
                      (->> (lamina/mapcat* (sinks/sink name)))
                      (lamina/siphon nexus)))
+       :clear (fn [label]
+                (let [matches (find-globbed base-path label)]
+                  (doseq [^File f (map second matches)]
+                    (.delete f))
+                  (apply swap! (:cache (meta open))
+                         dissoc (for [[target f] matches]
+                                  (list target)))))
        :period (fn [label]
                  (when-let [granularity (:granularity (first ((:archive-retentions config) label)))]
                    (* 1000 (config/as-seconds granularity))))

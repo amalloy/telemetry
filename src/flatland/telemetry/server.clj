@@ -140,6 +140,9 @@
     (-> live-channel
         (stitch-replay (replay config query period replay-since) response-channel))))
 
+(defn clear-target [config type target]
+  ((get-in config [:modules type :clear]) target))
+
 (defn add-query
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
@@ -147,10 +150,13 @@
   (let [{:keys [listen period]} (get-in config [:modules type])]
     (if listen
       (let [period (period label)
+            write-target (or (not-empty target) label)
             {:keys [success value]} (try-subscribe query period)]
         (if success
           (do
             (remove-query config type label)
+            (when replay-since
+              (clear-target config type write-target))
             (let [response-channel (lamina/channel)
                   live-channel (->> value
                                     (lamina/map*
@@ -163,7 +169,7 @@
                (alter (:queries config)
                       assoc-in [type label]
                       (keyed [query channel target unsubscribe])))
-              (listen channel (or (not-empty target) label))
+              (listen channel write-target)
               {:status 200
                :body response-channel}))
           {:status 400 :content-type "text/plain"
@@ -352,7 +358,8 @@
                  (throw (Exception. (format "Module %s must provide a shutdown hook."
                                             (:name module)))))
                [(:name module) (-> module
-                                   (update-in [:period] wrap-default default-period))]))))
+                                   (update-in [:period] wrap-default default-period)
+                                   (update-in [:clear] wrap-default nil))]))))
 
 (defn init
   "Starts the telemetry http and tcp servers, and registers any modules given. Returns a server
