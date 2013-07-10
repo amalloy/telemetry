@@ -13,7 +13,7 @@
                  [cheshire "5.1.1"]
                  [congomongo "0.4.1"]
                  [com.draines/postal "1.9.2"]
-                 [org.flatland/useful "0.10.2"]
+                 [org.flatland/useful "0.10.3"]
                  [org.flatland/phonograph "0.1.4"]
                  [ring-middleware-format "0.2.4" :exclusions [ring]]
                  [org.flatland/cassette "0.2.5"]

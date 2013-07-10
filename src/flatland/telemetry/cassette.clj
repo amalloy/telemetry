@@ -1,6 +1,7 @@
 (ns flatland.telemetry.cassette
   "Module for logging data to cassette backups."
   (:require [lamina.core :as lamina]
+            [lamina.trace :as trace]
             [aleph.formats :refer [encode-json->string decode-json]]
             [flatland.cassette :as cassette :refer [create-or-open append-message!]]
             [flatland.telemetry.sinks :as sinks]
@@ -15,7 +16,8 @@
                           #(decode-json % false)))
 
 (defn cassette-seq [{:keys [base-path codec] :or {codec codec}}]
-  (let [base-file (fs/file base-path)]
+  (let [base-file (fs/file base-path)
+        get-time #(get % "time")]
     (fn [pattern from until]
       (let [streams (for [file (fs/glob base-file pattern)]
                       (let [topic (fs/base-name file)]
@@ -24,9 +26,14 @@
                           (assoc record "messages"
                                  (for [message (get record "messages")]
                                    (assoc message :topic topic))))))
-            timeline (apply seq/merge-sorted (ascending #(get % "time"))
-                            (pmap seq streams))]
-        (for [{:strs [time messages]} timeline
+            timeline (seq/increasing* get-time compare
+                                      (apply seq/merge-sorted (ascending get-time)
+                                             (pmap seq streams)))]
+        (for [[in-order? entry] timeline
+              {:strs [time messages]} (if in-order?
+                                        [entry]
+                                        (do (trace/trace :cassette:timeline:error entry)
+                                            nil))
               :while (< time until)
               message messages]
           (-> message
