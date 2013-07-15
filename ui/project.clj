@@ -1,6 +1,6 @@
-(defproject org.flatland/telemetry-ui "0.2.3-beta2"
+(defproject org.flatland/telemetry-ui "0.2.3"
   :description "Telemetry user interface."
   :url "http://github.com/flatland/telemetry"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.flatland/telegraph-js "0.4.0-beta2"]])
+  :dependencies [[org.flatland/telegraph-js "0.4.0"]])
