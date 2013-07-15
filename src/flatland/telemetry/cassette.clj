@@ -68,6 +68,14 @@
      :shutdown (fn shutdown []
                  ;; the only way to close these files is to let them get GCed
                  (reset! (:cache (meta open)) nil))
+     :clear (fn [label]
+              (let [base-file (fs/file base-path)
+                    dirs (fs/glob base-file (s/replace label
+                                                        #"(\*)\d" "$1"))]
+                (doseq [dir dirs]
+                  (fs/delete-dir dir))
+                (apply swap! (:cache (meta open))
+                       dissoc (map (comp list fs/base-name) dirs))))
      :targets (fn []
                 (map fs/base-name (.listFiles (fs/file base-path))))
      :handler (handler config)
