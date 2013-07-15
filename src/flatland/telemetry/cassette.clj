@@ -19,26 +19,27 @@
   (let [base-file (fs/file base-path)
         get-time #(get % "time")]
     (fn [pattern from until]
-      (let [streams (for [file (fs/glob base-file pattern)]
-                      (let [topic (fs/base-name file)]
-                        (for [record (cassette/messages-since (cassette/open file codec false)
-                                                              #(>= (% "time") from))]
-                          (assoc record "messages"
-                                 (for [message (get record "messages")]
-                                   (assoc message :topic topic))))))
-            timeline (seq/increasing* get-time compare
-                                      (apply seq/merge-sorted (ascending get-time)
-                                             (pmap seq streams)))]
-        (for [[in-order? entry] timeline
-              {:strs [time messages]} (if in-order?
-                                        [entry]
-                                        (do (trace/trace :cassette:timeline:error entry)
-                                            nil))
-              :while (< time until)
-              message messages]
-          (-> message
-              (dissoc "timestamp")
-              (assoc :timestamp time)))))))
+      (when-let [topic-dirs (seq (fs/glob base-file pattern))]
+        (let [streams (for [file topic-dirs]
+                        (let [topic (fs/base-name file)]
+                          (for [record (cassette/messages-since (cassette/open file codec false)
+                                                                #(>= (% "time") from))]
+                            (assoc record "messages"
+                                   (for [message (get record "messages")]
+                                     (assoc message :topic topic))))))
+              timeline (seq/increasing* get-time compare
+                                        (apply seq/merge-sorted (ascending get-time)
+                                               (pmap seq streams)))]
+          (for [[in-order? entry] timeline
+                {:strs [time messages]} (if in-order?
+                                          [entry]
+                                          (do (trace/trace :cassette:timeline:error entry)
+                                              nil))
+                :while (< time until)
+                message messages]
+            (-> message
+                (dissoc "timestamp")
+                (assoc :timestamp time))))))))
 
 (defn replay-generator [config]
   (let [generator (cassette-seq config)]
