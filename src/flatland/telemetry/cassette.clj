@@ -71,7 +71,7 @@
      :clear (fn [label]
               (let [base-file (fs/file base-path)
                     dirs (fs/glob base-file (s/replace label
-                                                        #"(\*)\d" "$1"))]
+                                                       #"(\*)\d" "$1"))]
                 (doseq [dir dirs]
                   (fs/delete-dir dir))
                 (apply swap! (:cache (meta open))
