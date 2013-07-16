@@ -63,14 +63,15 @@
                                    (s/replace #"\*\d?" ".*")
                                    (s/replace ":" "/"))
                                ".pgr"))]
-    (for [^File f (file-seq (File. base-path))
-          :when (and (not (.isDirectory f))
-                     (re-matches regex (.getPath f)))]
-      [(-> (.getPath f)
-           (s/replace quoted-path "")
-           (s/replace "/" ":")
-           (s/replace ".pgr" ""))
-       f])))
+    (into {}
+          (for [^File f (file-seq (File. base-path))
+                :when (and (not (.isDirectory f))
+                           (re-matches regex (.getPath f)))]
+            [(-> (.getPath f)
+                 (s/replace quoted-path "")
+                 (s/replace "/" ":")
+                 (s/replace ".pgr" ""))
+             f]))))
 
 (defn regex-archiver [tests]
   (fn [label]
@@ -158,11 +159,10 @@ into the time-unit representation that telemetry uses."
                      (lamina/siphon nexus)))
        :clear (fn [label]
                 (let [matches (find-globbed base-path label)]
-                  (doseq [^File f (map second matches)]
+                  (doseq [^File f (vals matches)]
                     (.delete f))
-                  (apply swap! (:cache (meta open))
-                         dissoc (for [[target f] matches]
-                                  (list target)))))
+                  (util/forget-memoizations! open
+                                             (map list (keys matches)))))
        :period (fn [label]
                  (when-let [granularity (:granularity (first ((:archive-retentions config) label)))]
                    (* 1000 (config/as-seconds granularity))))

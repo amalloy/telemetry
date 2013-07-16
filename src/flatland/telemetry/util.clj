@@ -42,6 +42,13 @@
             (deref (get @cache args))))
         (with-meta {:cache cache}))))
 
+(defn forget-memoizations!
+  "Modify the cache of a memoize* function so that it forgets its saved values for the specified
+arglists"
+  [f arglists]
+  (apply swap! (:cache (meta f))
+         dissoc arglists))
+
 (defn path->targets [root extension]
   (lazy-loop [dir (fs/file root)]
     (let [name (fs/base-name dir)]

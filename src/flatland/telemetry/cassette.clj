@@ -5,7 +5,7 @@
             [aleph.formats :refer [encode-json->string decode-json]]
             [flatland.cassette :as cassette :refer [create-or-open append-message!]]
             [flatland.telemetry.sinks :as sinks]
-            [flatland.telemetry.util :refer [memoize* ascending render-handler]]
+            [flatland.telemetry.util :refer [memoize* forget-memoizations! ascending render-handler]]
             [flatland.useful.seq :as seq]
             [me.raynes.fs :as fs]
             [clojure.string :as s]
@@ -74,8 +74,9 @@
                                                        #"(\*)\d" "$1"))]
                 (doseq [dir dirs]
                   (fs/delete-dir dir))
-                (apply swap! (:cache (meta open))
-                       dissoc (map (comp list fs/base-name) dirs))))
+                (forget-memoizations! open
+                                      (->> dirs
+                                           (map (comp list fs/base-name))))))
      :targets (fn []
                 (map fs/base-name (.listFiles (fs/file base-path))))
      :handler (handler config)
