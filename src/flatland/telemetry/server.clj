@@ -323,7 +323,8 @@
           (try
             (ms->s (+ (System/currentTimeMillis)
                       (laminate/parse-interval s)))
-            (Long/parseLong s)))))))
+            (catch Exception e
+              (Long/parseLong s))))))))
 
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
