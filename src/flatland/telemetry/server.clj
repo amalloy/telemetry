@@ -147,6 +147,10 @@
 (defn clear-target [config type target]
   ((get-in config [:modules type :clear]) target))
 
+(defn clear [config type target]
+  (clear-target config type target)
+  {:status 200 :body "OK\n"})
+
 (defn add-query
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
@@ -333,6 +337,8 @@
                                        (lamina.query.struct/parse-time-interval period))))
                         (ANY "/queries" []
                           (get-queries config))
+                        (POST "/clear" [type name]
+                          (clear config (keyword type) name))
                         (ANY "/targets" []
                           (render-targets (get-targets config)))
                         (GET "/schema" []
