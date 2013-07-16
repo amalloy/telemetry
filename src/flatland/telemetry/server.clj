@@ -17,7 +17,7 @@
    [compojure.route :refer [resources]]
    [noir.util.middleware :refer [wrap-rewrites]]
    [flatland.useful.utils :refer [returning thread-local]]
-   [flatland.useful.map :refer [update keyed map-vals ordering-map]]
+   [flatland.useful.map :refer [update keyed map-vals ordering-map filter-vals]]
    [postal.core :as postal]
    [flatland.laminate.time :refer [s->ms ms->s]]
    [flatland.laminate.render :as laminate]
@@ -95,13 +95,15 @@
            :body (formats/encode-json->string {:query query})})
       {:status 404})))
 
-(defn replay [config query period start-time]
+(defn replay [config query period {start-time :since, source :source}]
   (let [query (str "&" query)
-        replayer (fn [opts]
-                   (first (keep (fn [module]
-                                  (when-let [f (:replay module)]
-                                    (f opts)))
-                                (vals (:modules config)))))
+        replayer (if source
+                   (get-in config [:modules source :replay])
+                   (fn [opts] ;; try modules until one returns non-nil
+                     (first (keep (fn [module]
+                                    (when-let [f (:replay module)]
+                                      (f opts)))
+                                  (vals (:modules config))))))
         data-seq (-> (query/query-seqs
                       {query nil} ;; lamina wants millisecond timestamps
                       {:timestamp #(* 1000 (:timestamp %)) :payload identity :period period
@@ -136,13 +138,13 @@
     (lamina/join (lamina/lazy-seq->channel old-seq) old-channel)
     combined))
 
-(defn maybe-replay [config live-channel query period replay-since response-channel]
-  (if-not replay-since
+(defn maybe-replay [config live-channel query period {:keys [since source] :as replay-opts} response-channel]
+  (if-not since
     (do
       (lamina/enqueue-and-close response-channel "OK\n")
       live-channel)
     (-> live-channel
-        (stitch-replay (replay config query period replay-since) response-channel))))
+        (stitch-replay (replay config query period replay-opts) response-channel))))
 
 (defn clear-target [config type target]
   ((get-in config [:modules type :clear]) target))
@@ -154,7 +156,7 @@
 (defn add-query
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
-  [config type label target query replay-since]
+  [config type label target query {replay-since :since replay-source :source :as replay-opts}]
   (let [{:keys [listen period]} (get-in config [:modules type])]
     (if listen
       (let [period (period label)
@@ -171,7 +173,7 @@
                                      (fn [obj]
                                        {:timestamp (ms->s (System/currentTimeMillis))
                                         :value obj})))
-                  channel (maybe-replay config live-channel query period replay-since response-channel)
+                  channel (maybe-replay config live-channel query period replay-opts response-channel)
                   unsubscribe #(lamina/close channel)]
               (dosync
                (alter (:queries config)
@@ -325,10 +327,13 @@
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
   [config]
-  (let [writers (routes (POST "/add-query" [type name target query replay-since]
+  (let [writers (routes (POST "/add-query" [type name target query replay-since replay-source]
                           (add-query config
                                      (keyword type) name (not-empty target) query
-                                     (parse-replay-arg replay-since)))
+                                     (filter-vals {:since (parse-replay-arg replay-since)
+                                                   :source (when (seq replay-source)
+                                                             (keyword replay-source))}
+                                                  identity)))
                         (POST "/remove-query" [type name]
                           (remove-query config (keyword type) name)))
         readers (routes (ANY "/inspect" [query period]
