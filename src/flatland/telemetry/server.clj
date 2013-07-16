@@ -117,6 +117,7 @@
   (let [[old-channel combined] (repeatedly lamina/channel)
         latest-date (atom 0)
         message-count (atom 0)]
+    (lamina/enqueue response-channel "Replaying...\n")
     (lamina/receive-all old-channel (fn [{:keys [timestamp]}]
                                       (swap! message-count inc)
                                       (swap! latest-date max timestamp)))
@@ -180,7 +181,7 @@
                       assoc-in [type label]
                       (keyed [query channel target unsubscribe])))
               (listen channel write-target)
-              {:status 200
+              {:status 200 :content-type "text/plain"
                :body response-channel}))
           {:status 400 :content-type "text/plain"
            :body value}))
