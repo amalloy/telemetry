@@ -3,6 +3,8 @@
             [flatland.telemetry.sinks :as sinks]
             [flatland.telemetry.util :as util :refer [memoize* render-handler]]
             [flatland.phonograph :as phonograph]
+            [flatland.useful.utils :refer [update-peek]]
+            [me.raynes.fs :as fs]
             [lamina.core :as lamina]
             [clojure.string :as s])
   (:import java.io.File
@@ -31,16 +33,12 @@
 ;; handle when we add it to the cache, so that we can clean up the object only once any outstanding
 ;; references to it are cleared.
 (defn phonograph-opener [{:keys [^String base-path db-opts archive-retentions] :as config}]
-  (let [base-file (File. base-path)]
+  (let [base-file (fs/file base-path)]
     (memoize* (fn [label]
-                (let [path-segments (vec (s/split label #":"))
-                      path-segments (conj (pop path-segments)
-                                          (str (peek path-segments) ".pgr"))
-
-                      ^File full-path (reduce #(File. ^File %1 ^String %2)
-                                              base-file
-                                              path-segments)]
-                  (.mkdirs (.getParentFile full-path))
+                (let [path-segments (-> (vec (s/split label #":"))
+                                        (update-peek str ".pgr"))
+                      ^File full-path (apply fs/file base-file path-segments)]
+                  (fs/mkdirs (fs/parent full-path))
                   (try
                     (or (apply phonograph/create full-path
                                (db-opts label)
