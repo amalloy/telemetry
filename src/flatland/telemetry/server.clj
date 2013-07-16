@@ -158,35 +158,34 @@
   "Connects a channel from the queried probe descriptor to a graphite sink for the given name or
   pattern. Implicitly disconnects any existing writer from that sink first."
   [config type label target query {replay-since :since replay-source :source :as replay-opts}]
-  (let [{:keys [listen period]} (get-in config [:modules type])]
-    (if listen
-      (let [period (period label)
-            write-target (or (not-empty target) label)
-            {:keys [success value]} (try-subscribe query period)]
-        (if success
-          (do
-            (remove-query config type label)
-            (when replay-since
-              (clear-target config type write-target))
-            (let [response-channel (lamina/channel)
-                  live-channel (->> value
-                                    (lamina/map*
-                                     (fn [obj]
-                                       {:timestamp (ms->s (System/currentTimeMillis))
-                                        :value obj})))
-                  channel (maybe-replay config live-channel query period replay-opts response-channel)
-                  unsubscribe #(lamina/close channel)]
-              (dosync
-               (alter (:queries config)
-                      assoc-in [type label]
-                      (keyed [query channel target unsubscribe])))
-              (listen channel write-target)
-              {:status 200 :content-type "text/plain"
-               :body response-channel}))
-          {:status 400 :content-type "text/plain"
-           :body value}))
-      {:status 404 :content-type "text/plain"
-       :body (format "Unrecognized query type %s\n" (name (or type "nil")))})))
+  (let [{:keys [listen period]} (get-in config [:modules type])
+        [status body]
+        ,,(if listen
+            (let [period (period label)
+                  write-target (or (not-empty target) label)
+                  {:keys [success value]} (try-subscribe query period)]
+              (if success
+                (do
+                  (remove-query config type label)
+                  (when replay-since
+                    (clear-target config type write-target))
+                  (let [response-channel (lamina/channel)
+                        live-channel (->> value
+                                          (lamina/map*
+                                           (fn [obj]
+                                             {:timestamp (ms->s (System/currentTimeMillis))
+                                              :value obj})))
+                        channel (maybe-replay config live-channel query period replay-opts response-channel)
+                        unsubscribe #(lamina/close channel)]
+                    (dosync
+                     (alter (:queries config)
+                            assoc-in [type label]
+                            (keyed [query channel target unsubscribe])))
+                    (listen channel write-target)
+                    [200 response-channel]))
+                [400 value]))
+            [404 (format "Unrecognized query type %s\n" (name (or type "nil")))])]
+    {:status status :body body :content-type "text/plain"}))
 
 (defn readable-queries
   "A view of the queries map which can be printed and reread."
