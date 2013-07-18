@@ -10,6 +10,7 @@
             [flatland.useful.map :refer [keyed]]
             [flatland.useful.seq :as seq]
             [compojure.core :refer [GET]]
+            [somnium.congomongo.coerce :as coerce]
             [somnium.congomongo :as mongo]))
 
 (defn collection-lookup []
@@ -22,19 +23,22 @@
 
 (defn mongo-seq [conn from until]
   (let [collections (collection-lookup)]
-    (fn [target]
-      (mongo/with-mongo conn
-        (seq ;; make sure to start realizing each coll while conn is still bound
-         (apply seq/merge-sorted (ascending :timestamp)
-                (for [collection (collections target)]
-                  (for [{:keys [timestamp values]} (mongo/fetch collection
-                                                                :where {:timestamp {:$gte from
-                                                                                    :$lt until}}
-                                                                :only {:_id false})
-                        :let [timestamp (* timestamp 1000)]
-                        value values]
-                    {:timestamp timestamp
-                     :payload (assoc value :topic collection)}))))))))
+    (memoize
+     (fn [target]
+       (mongo/with-mongo conn
+         (seq ;; make sure to start realizing each coll while conn is still bound
+          (apply seq/merge-sorted (ascending :timestamp)
+                 (for [collection (collections target)]
+                   (for [mongo-obj (mongo/fetch collection
+                                                :where {:timestamp {:$gte from
+                                                                    :$lt until}}
+                                                :only {:_id false}
+                                                :as :mongo)
+                         :let [{:strs [timestamp values]} (coerce/mongo->clojure mongo-obj false)
+                               timestamp (* timestamp 1000)]
+                         value values]
+                     {:timestamp timestamp
+                      :payload (assoc value :topic collection)})))))))))
 
 (defn handler [conn]
   (render-handler (fn [from until]
