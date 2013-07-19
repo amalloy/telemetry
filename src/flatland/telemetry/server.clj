@@ -242,7 +242,7 @@
 (defn wrap-404 [handler]
   (fn [req]
     (or (handler req)
-        {:status 404})))
+        {:status 404 :body "404 not found\n"})))
 
 (defn module-routes
   "Constructs routes for delegating to installed modules.
