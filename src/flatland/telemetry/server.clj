@@ -328,7 +328,8 @@
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
   [config]
-  (let [writers (routes (POST "/add-query" [type name target query replay-since replay-source]
+  (let [{{:keys [disable-rendering disable-writing]} :modes} config
+        writers (routes (POST "/add-query" [type name target query replay-since replay-source]
                           (add-query config
                                      (keyword type) name (not-empty target) query
                                      (filter-vals {:since (parse-replay-arg replay-since)
@@ -349,8 +350,14 @@
                           (render-targets (get-targets config)))
                         (GET "/schema" []
                           (render-schema config)))]
-    (-> (routes (wrap-saving-queries writers config)
-                readers
+    (-> (routes (if disable-writing
+                  (constantly nil)
+                  (routes (wrap-saving-queries writers config)
+                          readers))
+                (if disable-rendering
+                  (GET "/:module/render" []
+                    {:status 400 :body "Rendering disabled\n"})
+                  (constantly nil))
                 (module-routes config)
                 (-> (resources "/")
                     (wrap-rewrites #"^/telemetry/?$" "/telemetry/index.html")))
@@ -381,21 +388,25 @@
   "Starts the telemetry http and tcp servers, and registers any modules given. Returns a server
   handle which can be terminated via destroy!. The handle is just a map with some useful data, but
   should be considered opaque: tamper at your own risk."
-  [{:keys [modules http-port tcp-port period module-order] :or {period 1000} :as config}]
-  (let [modules (init-modules modules period)
+  [{:keys [modules http-port tcp-port period module-order modes] :or {period 1000} :as config}]
+  (let [{:keys [disable-rendering disable-writing]} modes
+        modules (init-modules modules period)
         config (doto (assoc config
                        :queries (ref {})
                        :clients (agent {})
                        :modules (into (ordering-map module-order)
                                       modules))
                  (restore-queries))
-        tcp (tcp/start-tcp-server (tcp-handler config)
-                                  ; we override the frame with utf-8 because gloss has some bad
-                                  ; error-handling code that breaks in some cases if we let it split
-                                  ; up by space for us. the "published" tcp-options are indeed the
-                                  ; real format we support, we just have to do it by hand for now.
-                                  (merge tcp-options {:port (or tcp-port default-tcp-port)
-                                                      :frame (gloss/string :utf-8)}))
+        tcp (if disable-writing
+              (constantly nil)
+              (tcp/start-tcp-server (tcp-handler config)
+                                        ; we override the frame with utf-8 because gloss has some
+                                        ; bad error-handling code that breaks in some cases if we
+                                        ; let it split up by space for us. the "published"
+                                        ; tcp-options are indeed the real format we support, we just
+                                        ; have to do it by hand for now.
+                                    (merge tcp-options {:port (or tcp-port default-tcp-port)
+                                                        :frame (gloss/string :utf-8)})))
         debug-aleph? (atom false)
         handler-atom (atom (ring-handler config))
         handler (wrap-deref handler-atom)
