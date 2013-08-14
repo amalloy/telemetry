@@ -1,4 +1,4 @@
-(defproject org.flatland/telemetry "0.2.6"
+(defproject org.flatland/telemetry "0.2.7-SNAPSHOT"
   :description "Data from a distance."
   :url "http://github.com/flatland/telemetry"
   :license {:name "Eclipse Public License"
