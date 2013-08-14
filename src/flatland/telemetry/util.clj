@@ -4,6 +4,7 @@
             [flatland.useful.map :refer [keyed]]
             [clojure.string :as s]
             [aleph.formats :as formats]
+            [lamina.core :as lamina]
             [flatland.laminate.render :as laminate]
             [compojure.core :refer [GET]]))
 
@@ -71,17 +72,33 @@ arglists"
   (def descending (comparator >))
   (def ascending (comparator <)))
 
+(defn write-piecemeal [ch coll]
+  (lamina/enqueue ch "[")
+  (when (seq coll)
+    (letfn [(write-target [{:keys [target datapoints]}]
+              (lamina/enqueue ch "{\"target\":" (pr-str target))
+              (lamina/enqueue ch ",\"datapoints\":")
+              (lamina/enqueue ch (formats/encode-json->string datapoints))
+              (lamina/enqueue ch "}"))]
+      (write-target (first coll))
+      (doseq [target (rest coll)]
+        (lamina/enqueue ch ",")
+        (write-target target))))
+  (lamina/enqueue ch "]")
+  (lamina/close ch))
+
 (defn render-handler [points {:keys [timestamp payload]
                               :or {timestamp :timestamp, payload :payload}}]
   (GET "/render" [target from until shift period align timezone]
     (let [now (System/currentTimeMillis)
           {:keys [targets offset from until period]} (laminate/parse-render-opts
                                                       (keyed [target now from until
-                                                              shift period align timezone]))]
+                                                              shift period align timezone]))
+          ch (lamina/channel)]
+      (write-piecemeal ch (laminate/points targets offset
+                                           (merge {:seq-generator (points from until)
+                                                   :timestamp timestamp :payload payload}
+                                                  (when period {:period period}))))
       {:status 200
        :headers {"Content-Type" "application/json"}
-       :body (formats/encode-json->string
-              (laminate/points targets offset
-                               (merge {:seq-generator (points from until)
-                                       :timestamp timestamp :payload payload}
-                                      (when period {:period period}))))})))
+       :body ch})))
