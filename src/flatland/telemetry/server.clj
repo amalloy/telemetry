@@ -314,16 +314,7 @@
                (process-event probe data))))))))
 
 (defn parse-replay-arg [s]
-  (let [parser (java.text.SimpleDateFormat. "yyyy-MM-dd")]
-    (when (seq s)
-      (try
-        (ms->s (.getTime (.parse parser s)))
-        (catch Exception e
-          (try
-            (ms->s (+ (System/currentTimeMillis)
-                      (laminate/parse-interval s)))
-            (catch Exception e
-              (Long/parseLong s))))))))
+  (laminate/parse-time s (System/currentTimeMillis)))
 
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
