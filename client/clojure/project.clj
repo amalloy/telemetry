@@ -1,4 +1,4 @@
-(defproject org.flatland/telemetry-client "0.2.0"
+(defproject org.flatland/telemetry-client "0.2.1"
   :description "A Clojure client for Telemetry."
   :url "https://github.com/flatland/telemetry"
   :license {:name "Eclipse Public License"
