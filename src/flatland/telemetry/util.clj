@@ -89,10 +89,10 @@ arglists"
 
 (defn render-handler [points {:keys [timestamp payload]
                               :or {timestamp :timestamp, payload :payload}}]
-  (GET "/render" [target from until shift period align timezone]
+  (GET "/render" [target from until span shift period align timezone]
     (let [now (System/currentTimeMillis)
           {:keys [targets offset from until period]} (laminate/parse-render-opts
-                                                      (keyed [target now from until
+                                                      (keyed [target now from until span
                                                               shift period align timezone]))
           ch (lamina/channel)]
       (write-piecemeal ch (laminate/points targets offset
