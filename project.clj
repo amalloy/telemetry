@@ -1,4 +1,4 @@
-(defproject org.flatland/telemetry "0.2.9"
+(defproject org.flatland/telemetry "0.2.10"
   :description "Data from a distance."
   :url "http://github.com/flatland/telemetry"
   :license {:name "Eclipse Public License"
@@ -15,7 +15,7 @@
                  [com.draines/postal "1.9.2"]
                  [org.flatland/useful "0.10.3"]
                  [org.flatland/phonograph "0.1.4"]
-                 [org.flatland/laminate "1.4.2"]
+                 [org.flatland/laminate "1.5.0"]
                  [org.flatland/cassette "0.2.5"]
                  [org.flatland/telemetry-ui "0.2.4"]]
   :exclusions [lamina]
