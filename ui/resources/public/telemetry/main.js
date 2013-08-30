@@ -87,6 +87,7 @@ $(document).ready(function() {
   });
 
   admin.addOpts("type", "#type");
+  admin.addOpts("type", "#replay-source");
   selectTree(window.location.hash.substr(1) || "phonograph");
 
   $("#add").click(function(e) {
@@ -113,5 +114,5 @@ $(document).ready(function() {
   $("#target").blur(function(e)  { $(this).attr("placeholder", "target")                          });
 
   $("#replay-since").focus(function(e) { $(this).attr("placeholder", "-7d")          });
-  $("#replay-since").blur(function(e)  { $(this).attr("placeholder", "replay since") });
+  $("#replay-since").blur(function(e)  { $(this).attr("placeholder", "replay") });
 });

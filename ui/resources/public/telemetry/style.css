@@ -10,14 +10,21 @@
   float: left;
 }
 
+#replay-source {
+  font-family: monospace;
+  width: 150px;
+  margin-left: 10px;
+  height: auto;
+}
+
 #replay-since {
-  width: 30%;
+  width: 120px;
   margin-left: 10px;
   font-family: monospace;
 }
 
 #target {
-  width: 30%;
+  width: 200px;
   margin-left: 10px;
   font-family: monospace;
 }
@@ -29,6 +36,7 @@
 
 #advanced {
   font-size: 12px;
+  height: 35px;
   display: inline-block;
   vertical-align: top;
 }
