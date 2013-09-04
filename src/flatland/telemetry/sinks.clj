@@ -6,14 +6,14 @@
             [lamina.query.core :refer [def-query-operator]])
   (:import java.util.Date))
 
-(defn timed-value [time values]
-  {::time time, ::values values})
+(defn timed-value [time value]
+  {::time time, ::value value})
 
 (defn is-timed-value? [x]
   (and (map? x)
-       (every? #(contains? x %) [::time ::values])))
+       (every? #(contains? x %) [::time ::value])))
 
-(def get-values ::values)
+(def get-value ::value)
 (def get-time ::time)
 
 (defn timed-values-op [time values {:keys [task-queue]
