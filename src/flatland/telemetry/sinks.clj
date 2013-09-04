@@ -1,5 +1,6 @@
 (ns flatland.telemetry.sinks
   (:require [clojure.string :as str]
+            [flatland.laminate :as laminate]
             [lamina.time :as t]
             [lamina.core :as lamina]
             [lamina.query.operators :as q]
@@ -16,21 +17,27 @@
 (def get-value ::value)
 (def get-time ::time)
 
-(defn timed-values-op [time values {:keys [task-queue]
-                                  :or {task-queue (t/task-queue)}}
-                      ch]
+(defn timed-op [time value {:keys [task-queue]
+                            :or {task-queue (t/task-queue)}}
+                ch]
   (lamina/map* (fn [x]
-                 (timed-value (time x) (values x)))
+                 (timed-value (or (time x) (quot (t/now task-queue) 1000)) (value x)))
                ch))
 
-(def-query-operator timed-values
+(def default-time-operators
+  {:operators [{:name "lookup", :options {0 :time}}]})
+
+(def-query-operator timed
   :periodic? false
   :distribute? true
   :transform (fn [{:keys [options]} ch]
-               (let [{time 0, values 1 :or {time :time, values :values}} options]
-                 (timed-values-op (q/getter time) (q/getter values)
-                                  (dissoc options 0 1)
-                                  ch))))
+               (let [{time 0, value 1 :or {time default-time-operators}}
+                     options]
+                 (timed-op (q/getter time) (if value
+                                             (q/getter value)
+                                             (partial laminate/dissoc-in (:operators time)))
+                           (dissoc options 0 1)
+                           ch))))
 
 (defn adjust-time [name value real-timestamp]
   (if (is-timed-value? value)

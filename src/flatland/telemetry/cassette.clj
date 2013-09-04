@@ -51,7 +51,7 @@
                     (let [generator (cassette-seq config)]
                       (fn [pattern]
                         (generator pattern from until))))
-                  {:timestamp #(* 1000 (:timestamp %)) :payload identity}))
+                  {}))
 
 (defn init [{:keys [base-path file-size] :as config}]
   (let [nexus (lamina/channel* :permanent? true :grounded? true)
