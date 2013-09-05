@@ -35,7 +35,7 @@
                      options]
                  (timed-op (q/getter time) (if value
                                              (q/getter value)
-                                             (partial laminate/dissoc-in (:operators time)))
+                                             (partial laminate/dissoc-lookup (:operators time)))
                            (dissoc options 0 1)
                            ch))))
 
