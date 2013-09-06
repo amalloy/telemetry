@@ -40,9 +40,14 @@
                            ch))))
 
 (defn adjust-time [name value real-timestamp]
-  (if (is-timed-value? value)
-    [name (get-value value) (get-time value)]
-    [name value real-timestamp]))
+  (cond (is-timed-value? value)
+        ,,[[name (get-value value) (get-time value)]]
+        (and (sequential? value)
+             (is-timed-value? (first value)))
+        ,,(for [v value]
+            [name (get-value v) (get-time v)])
+        :else
+        ,,[[name value real-timestamp]]))
 
 ;;; functions for interpolating values into patterns
 
@@ -68,7 +73,7 @@
   "Returns a function which emits each datum decorated with the given label and the current time."
   [name]
   (fn [{:keys [timestamp value]}]
-    [(adjust-time name value timestamp)]))
+    (adjust-time name value timestamp)))
 
 (defn sink-by-name
   "Returns a function which expects to receive a map of facets to values. Each facet is
@@ -80,8 +85,10 @@
         (let [t (get-time value)]
           (for [[k v] (get-value value)]
             [(rename k) v t]))
-        (for [[k v] value]
-          (adjust-time (rename k) v timestamp))))))
+        (for [[k v] value
+              :when (not (nil? v))
+              adjusted (adjust-time (rename k) v timestamp)]
+          adjusted)))))
 
 (defn sink
   "Determines what kind of pattern name is, and creates an appropriate transformer for its channel.
