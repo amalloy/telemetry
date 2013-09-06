@@ -1,45 +1,53 @@
 (ns flatland.telemetry.sinks
   (:require [clojure.string :as str]
+            [flatland.laminate :as laminate]
             [lamina.time :as t]
             [lamina.core :as lamina]
             [lamina.query.operators :as q]
             [lamina.query.core :refer [def-query-operator]])
   (:import java.util.Date))
 
-(defn timed-value [time values]
-  {::time time, ::values values})
+(defn timed-value [time value]
+  {::time time, ::value value})
 
 (defn is-timed-value? [x]
   (and (map? x)
-       (every? #(contains? x %) [::time ::values])))
+       (every? #(contains? x %) [::time ::value])))
 
-(def get-values ::values)
+(def get-value ::value)
 (def get-time ::time)
 
-(defn timed-values-op [time values {:keys [task-queue]
-                                  :or {task-queue (t/task-queue)}}
-                      ch]
+(defn timed-op [time value {:keys [task-queue]
+                            :or {task-queue (t/task-queue)}}
+                ch]
   (lamina/map* (fn [x]
-                 (timed-value (time x) (values x)))
+                 (timed-value (or (time x) (quot (t/now task-queue) 1000)) (value x)))
                ch))
 
-(def-query-operator timed-values
+(def default-time-operators
+  {:operators [{:name "lookup", :options {0 :time}}]})
+
+(def-query-operator timed
   :periodic? false
   :distribute? true
   :transform (fn [{:keys [options]} ch]
-               (let [{time 0, values 1 :or {time :time, values :values}} options]
-                 (timed-values-op (q/getter time) (q/getter values)
-                                  (dissoc options 0 1)
-                                  ch))))
+               (let [{time 0, value 1 :or {time default-time-operators}}
+                     options]
+                 (timed-op (q/getter time) (if value
+                                             (q/getter value)
+                                             (partial laminate/dissoc-lookup (:operators time)))
+                           (dissoc options 0 1)
+                           ch))))
 
 (defn adjust-time [name value real-timestamp]
   (cond (is-timed-value? value)
-        ,,[[name (get-values value) (get-time value)]]
+        ,,[[name (get-value value) (get-time value)]]
         (and (sequential? value)
              (is-timed-value? (first value)))
         ,,(for [v value]
-            [name (get-values v) (get-time v)])
-        :else [[name value real-timestamp]]))
+            [name (get-value v) (get-time v)])
+        :else
+        ,,[[name value real-timestamp]]))
 
 ;;; functions for interpolating values into patterns
 
@@ -58,6 +66,9 @@
   [pattern key]
   (str/replace pattern #"\*" key))
 
+(defn normalize-name [topic]
+  (str/replace topic #" " "-"))
+
 ;;; lamina channel transformers, to turn values from a probe descriptor into a sequence of tuples
 ;;; suitable for encoding and sending out to the graphite server or phonograph db.
 
@@ -68,14 +79,19 @@
     (adjust-time name value timestamp)))
 
 (defn sink-by-name
-  "Returns a function which expects to receive a map of labels to values. Each label has its
-   value(s) interpolated into the pattern, and a list of [name value time] tuples is returned."
+  "Returns a function which expects to receive a map of facets to values. Each facet is
+   interpolated into the pattern, and a list of [topic value time] tuples is returned."
   [pattern rename-fn]
-  (fn [{:keys [timestamp value]}]
-    (for [[k v] value
-          adjusted (adjust-time (rename-fn pattern (or k "nil"))
-                                v timestamp)]
-      adjusted)))
+  (let [rename #(rename-fn pattern (or % "nil"))]
+    (fn [{:keys [timestamp value]}]
+      (if (is-timed-value? value)
+        (let [t (get-time value)]
+          (for [[k v] (get-value value)]
+            [(rename k) v t]))
+        (for [[k v] value
+              :when (not (nil? v))
+              adjusted (adjust-time (rename k) v timestamp)]
+          adjusted)))))
 
 (defn sink
   "Determines what kind of pattern name is, and creates an appropriate transformer for its channel.
@@ -86,7 +102,7 @@
   [name]
   (if (re-find #"\*\d" name)
     (let [name (str/replace name #"\*(?!\d)" "*1")]
-      (sink-by-name name rename-multiple))
+      (sink-by-name name (comp normalize-name rename-multiple)))
     (if (re-find #"\*" name)
-      (sink-by-name name rename-one)
+      (sink-by-name name (comp normalize-name rename-one))
       (timed-sink name))))

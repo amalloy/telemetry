@@ -88,7 +88,7 @@ arglists"
   (lamina/close ch))
 
 (defn render-handler [points {:keys [timestamp payload]
-                              :or {timestamp :timestamp, payload :payload}}]
+                              :or {timestamp #(* 1000 (:timestamp %)), payload identity}}]
   (GET "/render" [target from until shift period align timezone]
     (let [now (System/currentTimeMillis)
           {:keys [targets offset from until period]} (laminate/parse-render-opts

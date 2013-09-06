@@ -34,11 +34,8 @@
                                                                     :$lt until}}
                                                 :only {:_id false}
                                                 :as :mongo)
-                         :let [{:strs [timestamp values]} (coerce/mongo->clojure mongo-obj false)
-                               timestamp (* timestamp 1000)]
-                         value values]
-                     {:timestamp timestamp
-                      :payload (assoc value :topic collection)})))))))))
+                         :let [{:strs [timestamp value]} (coerce/mongo->clojure mongo-obj false)]]
+                     (assoc value :topic collection, :timestamp timestamp))))))))))
 
 (defn handler [conn]
   (render-handler (fn [from until]
@@ -53,17 +50,14 @@
   (let [conn (mongo/make-connection uri)
         nexus (lamina/channel* :permanent? true :grounded? true)]
     (lamina/receive-all nexus
-                        (fn store [[target values timestamp]]
-                          (when (seq values)
-                            (mongo/with-mongo conn
-                              (try
-                                (mongo/add-index! target [:timestamp] :unique true)
-                                (mongo/insert! target {:timestamp timestamp
-                                                       :values (for [value values]
-                                                                 (dissoc value :topic))})
-                                (catch Exception exception
-                                  (trace/trace :mongo:error
-                                               (keyed [uri target timestamp values exception]))))))))
+                        (fn store [[target value timestamp]]
+                          (mongo/with-mongo conn
+                            (try
+                              (mongo/add-index! target [:timestamp] :unique true)
+                              (mongo/insert! target (keyed [timestamp value]))
+                              (catch Exception exception
+                                (trace/trace :mongo:error
+                                             (keyed [uri target timestamp value exception])))))))
     {:name :mongo
      :shutdown #(mongo/close-connection conn)
      :listen (fn listen [ch target]
