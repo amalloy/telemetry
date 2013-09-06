@@ -66,6 +66,9 @@
   [pattern key]
   (str/replace pattern #"\*" key))
 
+(defn normalize-name [topic]
+  (str/replace topic #" " "-"))
+
 ;;; lamina channel transformers, to turn values from a probe descriptor into a sequence of tuples
 ;;; suitable for encoding and sending out to the graphite server or phonograph db.
 
@@ -99,7 +102,7 @@
   [name]
   (if (re-find #"\*\d" name)
     (let [name (str/replace name #"\*(?!\d)" "*1")]
-      (sink-by-name name rename-multiple))
+      (sink-by-name name (comp normalize-name rename-multiple)))
     (if (re-find #"\*" name)
-      (sink-by-name name rename-one)
+      (sink-by-name name (comp normalize-name rename-one))
       (timed-sink name))))
