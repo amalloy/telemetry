@@ -314,8 +314,9 @@
                (process-event probe data))))))))
 
 (defn parse-replay-arg [s]
-  (-> (laminate/parse-time s (System/currentTimeMillis))
-      (quot 1000)))
+  (when-let [t (laminate/parse-time s (System/currentTimeMillis))]
+    (-> t
+        (quot 1000))))
 
 (defn ring-handler
   "Builds a telemetry ring handler from a config map."
