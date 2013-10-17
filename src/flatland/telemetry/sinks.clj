@@ -1,6 +1,7 @@
 (ns flatland.telemetry.sinks
   (:require [clojure.string :as str]
             [flatland.laminate :as laminate]
+            [flatland.useful.fn :refer [fix]]
             [lamina.time :as t]
             [lamina.core :as lamina]
             [lamina.query.operators :as q]
@@ -67,7 +68,7 @@
   (str/replace pattern #"\*" key))
 
 (defn normalize-name [topic]
-  (str/replace topic #" " "-"))
+  (str/replace topic #"[ .]" {" " "-", "." "_"}))
 
 ;;; lamina channel transformers, to turn values from a probe descriptor into a sequence of tuples
 ;;; suitable for encoding and sending out to the graphite server or phonograph db.
@@ -82,7 +83,8 @@
   "Returns a function which expects to receive a map of facets to values. Each facet is
    interpolated into the pattern, and a list of [topic value time] tuples is returned."
   [pattern rename-fn]
-  (let [rename #(rename-fn pattern (or % "nil"))]
+  (let [rename #(rename-fn pattern (-> (or % "nil")
+                                       (fix number? str)))]
     (fn [{:keys [timestamp value]}]
       (if (is-timed-value? value)
         (let [t (get-time value)]
