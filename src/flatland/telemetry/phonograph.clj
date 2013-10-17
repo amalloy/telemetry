@@ -39,7 +39,10 @@
                                         (update-peek str ".pgr"))
                       ^File full-path (apply fs/file base-file path-segments)]
                   (fs/mkdirs (fs/parent full-path))
-                  (try
+                  (try ;; TODO
+                       ;; - don't implicitly create when trying to render, only when writing
+                       ;; - when rendering, don't cache if file doesn't exist
+                       ;; needs changes to memoize*, or perhaps two different opener functions
                     (or (apply phonograph/create full-path
                                (db-opts label)
                                (map retention->archive (archive-retentions label)))
