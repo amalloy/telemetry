@@ -42,4 +42,14 @@ class Telemetry
       raise NetworkException.new(e)
     end
   end
+
+  class Null
+    def log(*args)
+      yield
+    end
+
+    def close
+      # do nothing
+    end
+  end
 end
