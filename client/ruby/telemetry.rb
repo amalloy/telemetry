@@ -30,7 +30,7 @@ class Telemetry
   def log(label, data = {}, &block)
     data = block.call if block
     begin
-      json = data.to_json
+      json = JSON.generate(data)
       json.unpack("U*").pack("U*")
     rescue ::Exception => e
       raise EncodingException.new(e)
