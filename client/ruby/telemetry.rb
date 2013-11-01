@@ -31,7 +31,6 @@ class Telemetry
     data = block.call if block
     begin
       json = JSON.generate(data)
-      json.unpack("U*").pack("U*")
     rescue ::Exception => e
       raise EncodingException.new(e)
     end
